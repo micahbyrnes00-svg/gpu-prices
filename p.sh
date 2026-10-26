@@ -142,6 +142,12 @@ sdbackup)  # after booting from the Seagate: erase the SD card and store a compr
   printf 'Restore: partition a drive (FAT32 boot + ext4 root), extract root with\n  sudo tar -I zstd -xpf %s -C /mnt/newroot\nand the -boot archive into /mnt/newroot/boot/firmware, and fix PARTUUIDs in cmdline.txt and etc/fstab.\n' "$(basename $f)" | sudo tee /mnt/sdbackup/RESTORE.txt >/dev/null
   ls -lh /mnt/sdbackup; sudo umount /mnt/sdbackup
   ;;
+setenv)  # setenv KEY VALUE -> writes into .env (created from .env.example), chmod 600
+  [ -f .env ] || cp .env.example .env
+  chmod 600 .env
+  if grep -q "^$2=" .env; then sed -i "s|^$2=.*|$2=$3|" .env; else echo "$2=$3" >> .env; fi
+  grep "^$2=" .env | sed -E 's/(SECRET=).+/\1*****/'
+  ;;
 diag)  # why did USB disks drop? power + kernel USB log
   vcgencmd get_throttled 2>/dev/null
   lsusb
