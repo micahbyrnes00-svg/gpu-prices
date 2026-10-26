@@ -72,6 +72,13 @@ web)  # serve the real site (docs/) once it exists, else the demo
   sudo docker run -d --name gpu-prices-web --restart unless-stopped -p 8088:80 \
     -v $src:/usr/share/caddy:ro caddy:2-alpine >/dev/null && echo "Serving $src on :8088"
   ;;
+scale)  # resize the headless VNC desktop to fit the TigerVNC window; persists via kanshi
+  mode=${2:-1504x846}
+  out=$(wlr-randr | awk 'NR==1{print $1}')
+  wlr-randr --output "$out" --custom-mode "$mode" && echo "Set $out to $mode"
+  mkdir -p ~/.config/kanshi
+  printf 'profile {\n  output %s mode --custom %s\n}\n' "$out" "$mode" > ~/.config/kanshi/config
+  ;;
 status)
   hostname; uptime
   systemctl --failed --no-legend
