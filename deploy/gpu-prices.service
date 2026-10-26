@@ -1,0 +1,13 @@
+[Unit]
+Description=Collect used GPU/RAM prices and publish site
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=pi
+WorkingDirectory=/home/pi/gpu-prices
+ExecStart=/home/pi/gpu-prices/deploy/update.sh
+Nice=10
+Environment=PATH=/home/pi/.local/bin:/usr/local/bin:/usr/bin:/bin
+TimeoutStartSec=45min

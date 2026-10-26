@@ -1,0 +1,39 @@
+{
+  "_note": "Tracked products. 'query' is sent to eBay search. 'must' = all words required in title (case-insensitive). 'exclude' = extra words that reject a listing. 'min'/'max' = sane USD price window; anything outside is dropped before stats. RAM 'gb' = total kit capacity, used for price per GB.",
+  "categories": {
+    "gpu": {"label": "Graphics Cards", "ebay_category_id": "27386"},
+    "ram": {"label": "Desktop RAM", "ebay_category_id": "170083"}
+  },
+  "global_exclude": [
+    "for parts", "parts only", "not working", "broken", "faulty", "defective", "as is", "as-is",
+    "box only", "empty box", "no gpu", "read description", "untested", "artifact",
+    "bracket", "backplate", "fan replacement", "fans only", "cooler only", "waterblock", "water block",
+    "laptop", "lot of", "bundle", "pc build", "gaming pc", "desktop computer", "motherboard combo",
+    "sodimm", "so-dimm", "ecc", "registered", "rdimm", "server"
+  ],
+  "models": [
+    {"id": "rtx-3060-12gb", "cat": "gpu", "name": "NVIDIA RTX 3060 12GB", "query": "RTX 3060 12GB", "must": ["3060", "12"], "exclude": ["3060 ti", "3060ti"], "min": 120, "max": 400},
+    {"id": "rtx-3060-ti", "cat": "gpu", "name": "NVIDIA RTX 3060 Ti", "query": "RTX 3060 Ti", "must": ["3060", "ti"], "exclude": [], "min": 130, "max": 400},
+    {"id": "rtx-3070", "cat": "gpu", "name": "NVIDIA RTX 3070", "query": "RTX 3070", "must": ["3070"], "exclude": ["3070 ti", "3070ti"], "min": 150, "max": 500},
+    {"id": "rtx-3080", "cat": "gpu", "name": "NVIDIA RTX 3080", "query": "RTX 3080", "must": ["3080"], "exclude": ["3080 ti", "3080ti"], "min": 200, "max": 700},
+    {"id": "rtx-3090", "cat": "gpu", "name": "NVIDIA RTX 3090", "query": "RTX 3090", "must": ["3090"], "exclude": ["3090 ti", "3090ti"], "min": 400, "max": 1400},
+    {"id": "rtx-4060", "cat": "gpu", "name": "NVIDIA RTX 4060", "query": "RTX 4060", "must": ["4060"], "exclude": ["4060 ti", "4060ti"], "min": 150, "max": 450},
+    {"id": "rtx-4070", "cat": "gpu", "name": "NVIDIA RTX 4070", "query": "RTX 4070", "must": ["4070"], "exclude": ["4070 ti", "4070ti", "super"], "min": 300, "max": 800},
+    {"id": "rtx-4070-super", "cat": "gpu", "name": "NVIDIA RTX 4070 Super", "query": "RTX 4070 Super", "must": ["4070", "super"], "exclude": ["ti"], "min": 350, "max": 900},
+    {"id": "rtx-4080", "cat": "gpu", "name": "NVIDIA RTX 4080", "query": "RTX 4080", "must": ["4080"], "exclude": ["super"], "min": 600, "max": 1500},
+    {"id": "rtx-4090", "cat": "gpu", "name": "NVIDIA RTX 4090", "query": "RTX 4090", "must": ["4090"], "exclude": [], "min": 1000, "max": 3500},
+    {"id": "rx-6700-xt", "cat": "gpu", "name": "AMD RX 6700 XT", "query": "RX 6700 XT", "must": ["6700", "xt"], "exclude": [], "min": 130, "max": 450},
+    {"id": "rx-6800-xt", "cat": "gpu", "name": "AMD RX 6800 XT", "query": "RX 6800 XT", "must": ["6800", "xt"], "exclude": [], "min": 220, "max": 650},
+    {"id": "rx-7800-xt", "cat": "gpu", "name": "AMD RX 7800 XT", "query": "RX 7800 XT", "must": ["7800", "xt"], "exclude": [], "min": 280, "max": 700},
+    {"id": "rx-7900-xtx", "cat": "gpu", "name": "AMD RX 7900 XTX", "query": "RX 7900 XTX", "must": ["7900", "xtx"], "exclude": [], "min": 500, "max": 1300},
+
+    {"id": "ddr4-16gb-3200", "cat": "ram", "name": "DDR4 16GB (2x8GB) 3200", "query": "DDR4 16GB 2x8GB 3200 desktop", "must": ["ddr4", "16gb", "3200"], "exclude": ["32gb", "64gb", "1x16"], "min": 15, "max": 200, "gb": 16},
+    {"id": "ddr4-32gb-3200", "cat": "ram", "name": "DDR4 32GB (2x16GB) 3200", "query": "DDR4 32GB 2x16GB 3200 desktop", "must": ["ddr4", "32gb", "3200"], "exclude": ["64gb", "1x32"], "min": 30, "max": 300, "gb": 32},
+    {"id": "ddr4-32gb-3600", "cat": "ram", "name": "DDR4 32GB (2x16GB) 3600", "query": "DDR4 32GB 2x16GB 3600 desktop", "must": ["ddr4", "32gb", "3600"], "exclude": ["64gb", "1x32"], "min": 30, "max": 300, "gb": 32},
+    {"id": "ddr4-64gb-3200", "cat": "ram", "name": "DDR4 64GB (2x32GB) 3200", "query": "DDR4 64GB 2x32GB 3200 desktop", "must": ["ddr4", "64gb"], "exclude": ["128gb", "4x16"], "min": 60, "max": 500, "gb": 64},
+    {"id": "ddr5-32gb-6000", "cat": "ram", "name": "DDR5 32GB (2x16GB) 6000", "query": "DDR5 32GB 2x16GB 6000 desktop", "must": ["ddr5", "32gb", "6000"], "exclude": ["64gb", "1x32"], "min": 50, "max": 500, "gb": 32},
+    {"id": "ddr5-32gb-5600", "cat": "ram", "name": "DDR5 32GB (2x16GB) 5600", "query": "DDR5 32GB 2x16GB 5600 desktop", "must": ["ddr5", "32gb", "5600"], "exclude": ["64gb", "1x32"], "min": 50, "max": 500, "gb": 32},
+    {"id": "ddr5-64gb-6000", "cat": "ram", "name": "DDR5 64GB (2x32GB) 6000", "query": "DDR5 64GB 2x32GB 6000 desktop", "must": ["ddr5", "64gb", "6000"], "exclude": ["128gb", "4x16"], "min": 100, "max": 900, "gb": 64},
+    {"id": "ddr5-96gb-6400", "cat": "ram", "name": "DDR5 96GB (2x48GB) 6400", "query": "DDR5 96GB 2x48GB desktop", "must": ["ddr5", "96gb"], "exclude": ["192gb"], "min": 150, "max": 1300, "gb": 96}
+  ]
+}
