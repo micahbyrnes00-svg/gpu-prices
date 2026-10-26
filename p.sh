@@ -79,6 +79,41 @@ scale)  # resize the headless VNC desktop to fit the TigerVNC window; persists v
   mkdir -p ~/.config/kanshi
   printf 'profile {\n  output %s mode --custom %s\n}\n' "$out" "$mode" > ~/.config/kanshi/config
   ;;
+migrate)  # copy the running OS onto the single attached Seagate (ERASES it)
+  mapfile -t D < <(seagates)
+  boot=$(root_disk)
+  [ "${#D[@]}" -eq 1 ] || { echo "Need exactly 1 Seagate attached, found ${#D[@]}: ${D[*]:-none}"; exit 1; }
+  t=/dev/${D[0]}
+  [ "${D[0]}" != "$boot" ] || { echo "Refusing: target is the boot disk"; exit 1; }
+  size=$(lsblk -bdno SIZE "$t")
+  [ "$size" -lt 2199023255552 ] && label=msdos || label=gpt   # MBR up to 2 TiB, GPT beyond
+  echo "Target: $t ($(lsblk -dno SIZE,MODEL "$t"), $label). Boot disk $boot is NOT touched."
+  echo "Erasing $t in 10 seconds. Ctrl+C to cancel."; sleep 10
+  sudo apt-get install -y -qq parted rsync dosfstools >/dev/null
+  sudo umount "$t"* 2>/dev/null
+  sudo wipefs -a "$t"* >/dev/null
+  sudo parted -s "$t" mklabel $label mkpart primary fat32 4MiB 516MiB mkpart primary ext4 516MiB 100%
+  [ $label = msdos ] && sudo parted -s "$t" set 1 boot on
+  sudo partprobe "$t"; sleep 3
+  p1=$(lsblk -lnpo NAME "$t" | sed -n 2p); p2=$(lsblk -lnpo NAME "$t" | sed -n 3p)
+  sudo mkfs.vfat -F 32 -n SGBOOT "$p1" >/dev/null
+  sudo mkfs.ext4 -F -q -L sgroot "$p2"
+  sudo mkdir -p /mnt/newroot
+  sudo mount "$p2" /mnt/newroot
+  sudo mkdir -p /mnt/newroot/boot/firmware
+  sudo mount "$p1" /mnt/newroot/boot/firmware
+  echo "Copying system (several minutes)..."
+  sudo rsync -aHAXx --info=progress2 --exclude={"/proc/*","/sys/*","/dev/*","/run/*","/tmp/*","/mnt/*","/media/*","/lost+found","/var/cache/apt/archives/*.deb","/home/*/.cache/*"} / /mnt/newroot/
+  sudo rsync -rt /boot/firmware/ /mnt/newroot/boot/firmware/
+  old1=$(findmnt -no PARTUUID /boot/firmware); old2=$(findmnt -no PARTUUID /)
+  new1=$(sudo blkid -s PARTUUID -o value "$p1"); new2=$(sudo blkid -s PARTUUID -o value "$p2")
+  sudo sed -i "s/$old1/$new1/; s/$old2/$new2/" /mnt/newroot/etc/fstab
+  sudo sed -i "s/root=PARTUUID=[^ ]*/root=PARTUUID=$new2/" /mnt/newroot/boot/firmware/cmdline.txt
+  echo "--- new fstab:"; grep -v '^#' /mnt/newroot/etc/fstab | grep -v '^$'
+  echo "--- new cmdline:"; cat /mnt/newroot/boot/firmware/cmdline.txt
+  sudo umount /mnt/newroot/boot/firmware /mnt/newroot
+  echo "DONE. Shut down, unplug the SanDisk, power on: it will boot from the Seagate."
+  ;;
 diag)  # why did USB disks drop? power + kernel USB log
   vcgencmd get_throttled 2>/dev/null
   lsusb
