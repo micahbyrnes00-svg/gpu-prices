@@ -231,6 +231,18 @@ cloudrun)  # make one backup now (runs as root via timer, or with sudo)
   done
   rclone --config "$conf" lsl gcrypt:
   ;;
+stats)  # health snapshot
+  echo "== $(hostname)  $(cat /proc/device-tree/model 2>/dev/null | tr -d '\0')"
+  uptime -p; echo "load: $(cut -d' ' -f1-3 /proc/loadavg)  cores: $(nproc)"
+  echo "temp: $(vcgencmd measure_temp 2>/dev/null | cut -d= -f2)  clock: $(( $(vcgencmd measure_clock arm 2>/dev/null | cut -d= -f2) / 1000000 )) MHz  power: $(vcgencmd get_throttled 2>/dev/null)"
+  free -h | sed -n '1,3p'
+  df -h / /boot/firmware | sed 1d | awk '{print "disk " $6 ": " $3 " used of " $2 " (" $5 ")"}'
+  echo "== top CPU"; ps -eo pid,pcpu,pmem,etime,comm --sort=-pcpu | head -8
+  echo "== top memory"; ps -eo pid,pmem,rss,comm --sort=-rss | head -6 | awk 'NR==1{print;next}{printf "%s %s %dMB %s\n",$1,$2,$3/1024,$4}'
+  echo "== containers"; docker stats --no-stream --format '{{.Name}}  cpu {{.CPUPerc}}  mem {{.MemUsage}}' 2>/dev/null
+  echo "== services"; systemctl --failed --no-legend | head; systemctl list-timers --no-pager | grep -E 'gpu-prices|pi-cloud' 
+  pgrep -af "rclone|zstd" >/dev/null && echo "cloud backup upload running"
+  ;;
 diag)  # why did USB disks drop? power + kernel USB log
   vcgencmd get_throttled 2>/dev/null
   lsusb
