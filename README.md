@@ -26,34 +26,19 @@ python3 run.py demo --days 60 --no-ai     # builds demo-site/ from a separate de
 ```
 Demo builds carry a banner, are set to noindex, and `update.sh` refuses to publish them.
 
-## Pi setup
+## Pi setup (Pi-hosted, current)
+Everything runs and is served from the Pi. `p.sh` wraps each step:
 ```bash
-cd ~ && git clone https://github.com/micahbyrnes00-svg/gpu-prices.git && cd gpu-prices
-
-# 1. Deploy key so the Pi can push only to this repo
-ssh-keygen -t ed25519 -N "" -f ~/.ssh/gpu_prices_deploy -C gpu-prices-pi
-cat ~/.ssh/gpu_prices_deploy.pub   # GitHub repo -> Settings -> Deploy keys -> Add, tick "Allow write access"
-cat >> ~/.ssh/config <<'EOF'
-Host github-gpu
-  HostName github.com
-  IdentityFile ~/.ssh/gpu_prices_deploy
-  IdentitiesOnly yes
-EOF
-git remote set-url origin git@github-gpu:micahbyrnes00-svg/gpu-prices.git
-git config user.name "gpu-prices bot"; git config user.email "micahbyrnes00@gmail.com"
-
-# 2. Keys
-cp .env.example .env && chmod 600 .env && nano .env
-
-# 3. First real run
-python3 run.py all && ./deploy/update.sh
-
-# 4. Schedule every 6 hours
-sudo cp deploy/gpu-prices.service deploy/gpu-prices.timer /etc/systemd/system/
-sudo systemctl daemon-reload && sudo systemctl enable --now gpu-prices.timer
-systemctl list-timers gpu-prices.timer
+cd ~/gpu-prices && git pull
+bash p.sh prep      # .env defaults, systemd timer installed, checks Claude CLI + Tailscale name
+bash p.sh keys      # prompts for eBay production keys (secret hidden) and tests them
+bash p.sh golive    # first real build -> /home/pi/site, Caddy on localhost:8088, Tailscale Funnel, 6-hour timer
 ```
-GitHub repo → Settings → Pages → Source: **Deploy from a branch**, branch `main`, folder `/docs`.
+Funnel needs HTTPS certificates and the Funnel attribute enabled for this device in the Tailscale admin console. No router ports are opened.
+
+To publish on GitHub Pages instead, set `PUBLISH=github` and `SITE_DIR=docs` in `.env`, add a write deploy key, and enable Pages from `main` `/docs`.
+
+Other helpers: `p.sh web` (serve demo or real site), `p.sh status`, `p.sh diag`, `p.sh cloudsetup` / `cloudrun` (encrypted weekly OS backup to Google Drive).
 
 ## Adding a model
 Add an entry to `config/models.json`. `must` words must all appear in the title, `exclude` words reject it, and `min`/`max` set the plausible USD window. RAM entries take `gb` for price per GB.

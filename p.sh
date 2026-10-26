@@ -66,11 +66,40 @@ if os.path.exists(st):
 print("MatrixVMS removed from VS Code recent/restore lists")
 EOF
   ;;
-web)  # serve the real site (docs/) once it exists, else the demo
-  src=/home/pi/gpu-prices/docs; [ -f $src/index.html ] || src=/home/pi/gpu-prices/demo-site
-  sudo docker rm -f gpu-prices-web >/dev/null 2>&1
-  sudo docker run -d --name gpu-prices-web --restart unless-stopped -p 8088:80 \
-    -v $src:/usr/share/caddy:ro caddy:2-alpine >/dev/null && echo "Serving $src on :8088"
+web)  # serve the real site (/home/pi/site) if built, else the demo; localhost only when public via Funnel
+  src=/home/pi/site; [ -f $src/index.html ] || src=/home/pi/gpu-prices/demo-site
+  bind=${2:-0.0.0.0}
+  docker rm -f gpu-prices-web >/dev/null 2>&1
+  docker run -d --name gpu-prices-web --restart unless-stopped -p $bind:8088:80 \
+    -v $src:/usr/share/caddy:ro caddy:2-alpine >/dev/null && echo "Serving $src on $bind:8088"
+  ;;
+prep)  # everything that doesn't need eBay keys
+  bash "$0" setenv PUBLISH pi >/dev/null; bash "$0" setenv SITE_DIR /home/pi/site >/dev/null
+  bash "$0" setenv DATA_DIR /home/pi/gpu-prices/data >/dev/null
+  mkdir -p /home/pi/site /home/pi/gpu-prices/data
+  sudo cp deploy/gpu-prices.service deploy/gpu-prices.timer /etc/systemd/system/ && sudo systemctl daemon-reload
+  echo "timer installed (not enabled until golive)"
+  echo "--- AI CLI:"; if command -v claude >/dev/null; then claude --version; echo 'Reply with exactly: ok' | timeout 90 claude -p 2>&1 | tail -2; else echo "claude not found"; fi
+  echo "--- Tailscale:"; tailscale status --json | python3 -c 'import json,sys;print(json.load(sys.stdin)["Self"]["DNSName"].rstrip("."))'
+  echo "--- .env:"; grep -E '^(PUBLISH|SITE_DIR|DATA_DIR|EPN_CAMPAIGN_ID|AI_CMD)=' .env
+  ;;
+keys)  # prompt for eBay production keys (typed by you, never shown) and test them
+  read -rp "eBay App ID (Client ID): " cid
+  read -rsp "eBay Cert ID (Client Secret, hidden): " csec; echo
+  bash "$0" setenv EBAY_CLIENT_ID "$cid" >/dev/null; bash "$0" setenv EBAY_CLIENT_SECRET "$csec" >/dev/null
+  unset csec
+  python3 -c 'from tracker.ebay import EbayClient; c=EbayClient(); c._get_token(); r=c.search("RTX 3080","27386",200,700,pages=1); print("eBay OK:", len(r), "listings for RTX 3080")' \
+    || echo "Key test FAILED - check the keys are the Production set"
+  ;;
+golive)  # first real build, serve it, publish through Tailscale Funnel, enable 6-hour updates
+  grep -q '^EBAY_CLIENT_SECRET=.\+' .env || { echo "Run: bash p.sh keys  first"; exit 1; }
+  dns=$(tailscale status --json | python3 -c 'import json,sys;print(json.load(sys.stdin)["Self"]["DNSName"].rstrip("."))')
+  bash "$0" setenv SITE_URL "https://$dns"
+  bash deploy/update.sh || exit 1
+  bash "$0" web 127.0.0.1
+  sudo tailscale funnel --bg 8088 || { echo "Funnel not allowed yet: enable HTTPS + Funnel in the Tailscale admin console (link above), then rerun golive."; exit 1; }
+  sudo systemctl enable --now gpu-prices.timer
+  echo "LIVE: https://$dns"; systemctl list-timers gpu-prices.timer --no-pager | head -2
   ;;
 scale)  # resize the headless VNC desktop to fit the TigerVNC window; persists via kanshi
   mode=${2:-1504x846}

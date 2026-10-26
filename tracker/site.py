@@ -77,13 +77,19 @@ def chart_svg(series: list[dict], w=800, h=260) -> str:
     )
 
 
-def page(title, desc, body, path, demo=False):
+FAVICON = ("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E"
+           "%3Crect width='32' height='32' rx='7' fill='%232457d6'/%3E%3Cpath d='M7 22l6-7 5 4 7-9' "
+           "stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+
+
+def page(title, desc, body, path, demo=False, jsonld=None):
     canon = f"{config.SITE_URL}/{path}".replace("/index.html", "/")
     banner = '<div class="demo">DEMO DATA — not real prices</div>' if demo else ""
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{E(title)}</title><meta name="description" content="{E(desc)}">
-<link rel="canonical" href="{canon}">
+<link rel="canonical" href="{canon}"><link rel="icon" href="{FAVICON}">
+{'<script type="application/ld+json">' + json.dumps(jsonld) + '</script>' if jsonld else ''}
 <meta property="og:title" content="{E(title)}"><meta property="og:description" content="{E(desc)}"><meta property="og:type" content="website">
 {'<meta name="robots" content="noindex">' if demo else ''}
 <style>{CSS}</style></head><body>{banner}
@@ -133,7 +139,11 @@ def model_page(rep, summary, demo):
 <h2>Cheapest listings from well-rated sellers</h2>{listings}
 {faq}"""
     desc = f"Used {name} price today: typically {money(cur['median'])} ({fair}). Price history, trend and the best current eBay listings."
-    return page(f"Used {name} Price Today — Fair Price & History", desc, body, f"{m['id']}.html", demo)
+    ld = {"@context": "https://schema.org", "@type": "Product", "name": name,
+          "description": f"Used {name} market price tracked daily from eBay listings.",
+          "offers": {"@type": "AggregateOffer", "priceCurrency": "USD", "lowPrice": cur["low"],
+                     "highPrice": cur["p75"], "offerCount": cur["n"], "itemCondition": "https://schema.org/UsedCondition"}}
+    return page(f"Used {name} Price Today — Fair Price & History", desc, body, f"{m['id']}.html", demo, ld)
 
 
 def table(reports, cat):
@@ -195,8 +205,21 @@ def about_page(demo):
     return page(f"About — {config.SITE_NAME}", "How used GPU and RAM prices are calculated.", body, "about.html", demo)
 
 
+def _sync(src, dst):
+    """Replace dst's contents with src's without removing dst itself (it may be a bind mount)."""
+    dst.mkdir(parents=True, exist_ok=True)
+    for child in list(dst.iterdir()):
+        if child.is_dir() and not child.is_symlink():
+            shutil.rmtree(child)
+        else:
+            child.unlink()
+    for child in src.iterdir():
+        shutil.move(str(child), str(dst / child.name))
+
+
 def build(reports, summaries, demo):
-    out = config.SITE_DIR
+    final = config.SITE_DIR
+    out = final.parent / (final.name + ".building")
     if out.exists():
         shutil.rmtree(out)
     (out / "data").mkdir(parents=True)
@@ -217,3 +240,8 @@ def build(reports, summaries, demo):
     (out / "robots.txt").write_text(
         ("User-agent: *\nDisallow: /\n" if demo else f"User-agent: *\nAllow: /\nSitemap: {config.SITE_URL}/sitemap.xml\n"))
     (out / ".nojekyll").write_text("")
+    (out / "404.html").write_text(page(f"Not found — {config.SITE_NAME}", "Page not found.",
+        '<h1>Page not found</h1><p class="sub">That page doesn\'t exist. <a href="index.html">See all used GPU &amp; RAM prices</a>.</p>',
+        "404.html", demo))
+    _sync(out, final)
+    shutil.rmtree(out)
