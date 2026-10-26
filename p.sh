@@ -145,6 +145,10 @@ sdbackup)  # after booting from the Seagate: erase the SD card and store a compr
 setenv)  # setenv KEY VALUE -> writes into .env (created from .env.example), chmod 600
   [ -f .env ] || cp .env.example .env
   chmod 600 .env
+  sed -i '/^[a-z][a-z]*=/d' .env   # drop lowercase junk keys from VNC typing
+  k=$(echo "$2" | tr a-z A-Z | tr -d '_')   # VNC can't type _ or capitals: accept "epncampaignid"
+  case $k in EPNCAMPAIGNID) k=EPN_CAMPAIGN_ID;; EBAYCLIENTID) k=EBAY_CLIENT_ID;; EBAYCLIENTSECRET) k=EBAY_CLIENT_SECRET;; *) k=$2;; esac
+  set -- "$1" "$k" "$3"
   if grep -q "^$2=" .env; then sed -i "s|^$2=.*|$2=$3|" .env; else echo "$2=$3" >> .env; fi
   grep "^$2=" .env | sed -E 's/(SECRET=).+/\1*****/'
   ;;
