@@ -114,6 +114,34 @@ migrate)  # copy the running OS onto the single attached Seagate (ERASES it)
   sudo umount /mnt/newroot/boot/firmware /mnt/newroot
   echo "DONE. Shut down, unplug the SanDisk, power on: it will boot from the Seagate."
   ;;
+wipeold)  # after booting from the Seagate: erase the old SanDisk OS stick as a plain exFAT drive
+  [ "$(findmnt -no LABEL /)" = sgroot ] || { echo "Not booted from the Seagate yet (root=$(findmnt -no SOURCE /)). Refusing."; exit 1; }
+  s=$(lsblk -dn -o NAME,MODEL | awk 'tolower($0) ~ /sandisk/ {print $1}')
+  [ -n "$s" ] && [ "$s" != "$(root_disk)" ] || { echo "SanDisk stick not found or is the boot disk. Refusing."; exit 1; }
+  echo "Erasing /dev/$s ($(lsblk -dno SIZE,MODEL /dev/$s)) in 10 seconds. Ctrl+C to cancel."; sleep 10
+  sudo apt-get install -y -qq exfatprogs >/dev/null
+  sudo umount /dev/$s* 2>/dev/null; sudo wipefs -a /dev/$s* >/dev/null
+  sudo parted -s /dev/$s mklabel msdos mkpart primary 1MiB 100%; sudo partprobe /dev/$s; sleep 2
+  sudo mkfs.exfat -L USB "$(lsblk -lnpo NAME /dev/$s | sed -n 2p)" >/dev/null && echo "SanDisk is now an empty exFAT drive labelled USB."
+  ;;
+sdbackup)  # after booting from the Seagate: erase the SD card and store a compressed backup of the OS on it
+  [ "$(findmnt -no LABEL /)" = sgroot ] || { echo "Not booted from the Seagate yet. Refusing."; exit 1; }
+  sd=/dev/mmcblk0; [ -b $sd ] || { echo "No SD card"; exit 1; }
+  echo "Erasing SD card $sd ($(lsblk -dno SIZE $sd)) in 10 seconds. Ctrl+C to cancel."; sleep 10
+  sudo apt-get install -y -qq exfatprogs zstd >/dev/null
+  sudo umount ${sd}p* 2>/dev/null; sudo wipefs -a ${sd}* >/dev/null
+  sudo parted -s $sd mklabel msdos mkpart primary 1MiB 100%; sudo partprobe $sd; sleep 2
+  sudo mkfs.exfat -L PIBACKUP ${sd}p1 >/dev/null
+  sudo mkdir -p /mnt/sdbackup && sudo mount ${sd}p1 /mnt/sdbackup
+  f=/mnt/sdbackup/micahbyrnespi-$(date +%F).tar.zst
+  echo "Writing $f (10-30 min)..."
+  sudo tar --one-file-system -cpf - --exclude='./var/cache/apt/archives/*.deb' --exclude='./home/*/.cache' \
+    --exclude='./var/lib/docker/overlay2' -C / . 2>/dev/null | zstd -T0 -6 -q -o "$f"
+  sudo tar -cpf - -C /boot/firmware . | zstd -T0 -q -o "${f%.tar.zst}-boot.tar.zst"
+  sudo cp /boot/firmware/cmdline.txt /etc/fstab /mnt/sdbackup/ 2>/dev/null
+  printf 'Restore: partition a drive (FAT32 boot + ext4 root), extract root with\n  sudo tar -I zstd -xpf %s -C /mnt/newroot\nand the -boot archive into /mnt/newroot/boot/firmware, and fix PARTUUIDs in cmdline.txt and etc/fstab.\n' "$(basename $f)" | sudo tee /mnt/sdbackup/RESTORE.txt >/dev/null
+  ls -lh /mnt/sdbackup; sudo umount /mnt/sdbackup
+  ;;
 diag)  # why did USB disks drop? power + kernel USB log
   vcgencmd get_throttled 2>/dev/null
   lsusb
