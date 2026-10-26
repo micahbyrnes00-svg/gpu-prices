@@ -152,6 +152,56 @@ setenv)  # setenv KEY VALUE -> writes into .env (created from .env.example), chm
   if grep -q "^$2=" .env; then sed -i "s|^$2=.*|$2=$3|" .env; else echo "$2=$3" >> .env; fi
   grep "^$2=" .env | sed -E 's/(SECRET=).+/\1*****/'
   ;;
+cloudsetup)  # one-time: connect Google Drive (browser sign-in) + encrypted remote + weekly timer
+  sudo apt-get install -y -qq rclone zstd >/dev/null
+  rclone listremotes | grep -q '^gdrive:' || rclone config create gdrive drive scope=drive.file
+  if ! rclone listremotes | grep -q '^gcrypt:'; then
+    while :; do
+      read -rsp "Choose a backup encryption password: " p1; echo
+      read -rsp "Type it again: " p2; echo
+      [ -n "$p1" ] && [ "$p1" = "$p2" ] && break; echo "Did not match, try again."
+    done
+    rclone config create gcrypt crypt remote=gdrive:pi-backups filename_encryption=standard password="$p1" --obscure >/dev/null
+    unset p1 p2; echo "Encrypted remote created. SAVE THAT PASSWORD in your password manager."
+  fi
+  sudo tee /etc/systemd/system/pi-cloud-backup.service >/dev/null <<EOF
+[Unit]
+Description=Encrypted OS backup to Google Drive
+Wants=network-online.target
+After=network-online.target
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /home/pi/gpu-prices/p.sh cloudrun
+Nice=15
+IOSchedulingClass=idle
+EOF
+  sudo tee /etc/systemd/system/pi-cloud-backup.timer >/dev/null <<EOF
+[Unit]
+Description=Weekly encrypted OS backup to Google Drive
+[Timer]
+OnCalendar=Sun *-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=30min
+[Install]
+WantedBy=timers.target
+EOF
+  sudo systemctl daemon-reload && sudo systemctl enable --now pi-cloud-backup.timer
+  systemctl list-timers pi-cloud-backup.timer --no-pager | head -2
+  ;;
+cloudrun)  # make one backup now (runs as root via timer, or with sudo)
+  conf=/home/pi/.config/rclone/rclone.conf
+  name=micahbyrnespi-$(date +%F).tar.zst
+  echo "Uploading $name (encrypted)..."
+  tar --one-file-system -cpf - --exclude='./var/cache/apt/archives/*.deb' --exclude='./home/*/.cache' \
+      --exclude='./var/lib/docker/overlay2' --exclude='./tmp/*' --exclude='./swap*' -C / . 2>/dev/null \
+    | zstd -T0 -6 -q | rclone --config "$conf" rcat "gcrypt:$name"
+  tar -cpf - -C /boot/firmware . | zstd -q | rclone --config "$conf" rcat "gcrypt:${name%.tar.zst}-boot.tar.zst"
+  # keep the 4 newest system backups
+  rclone --config "$conf" lsf gcrypt: --files-only | grep -v -- -boot | sort | head -n -4 | while read -r old; do
+    rclone --config "$conf" deletefile "gcrypt:$old"; rclone --config "$conf" deletefile "gcrypt:${old%.tar.zst}-boot.tar.zst"
+  done
+  rclone --config "$conf" lsl gcrypt:
+  ;;
 diag)  # why did USB disks drop? power + kernel USB log
   vcgencmd get_throttled 2>/dev/null
   lsusb
