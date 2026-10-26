@@ -79,6 +79,11 @@ scale)  # resize the headless VNC desktop to fit the TigerVNC window; persists v
   mkdir -p ~/.config/kanshi
   printf 'profile {\n  output %s mode --custom %s\n}\n' "$out" "$mode" > ~/.config/kanshi/config
   ;;
+diag)  # why did USB disks drop? power + kernel USB log
+  vcgencmd get_throttled 2>/dev/null
+  lsusb
+  journalctl -k -b --no-pager -o cat | grep -iE "under-?voltage|over-?current|disconnect|sd[a-z]:|sd [0-9]|seagate|reset (high|super)speed" | tail -25
+  ;;
 status)
   hostname; uptime
   systemctl --failed --no-legend
