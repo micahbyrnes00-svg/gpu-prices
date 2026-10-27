@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Used GPU & RAM price tracker.
+"""Used tech price tracker (GPUs, CPUs, RAM, SSDs, monitors, consoles, iPhones).
 
   python3 run.py collect            # pull current eBay listings into the database
   python3 run.py build              # regenerate the static site in docs/
@@ -36,7 +36,7 @@ def collect(con, models, sample_day=None):
                 continue
         else:
             raw = sample.listings(m, (sample_day - date(2026, 1, 1)).days)
-        kept = [l for l in raw if l["item_id"] and filters.keep(l, m, excl)]
+        kept = [l for l in raw if l["item_id"] and filters.keep(l, m, excl + cat.get("exclude", []))]
         con.executemany(
             "INSERT OR IGNORE INTO listings VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
             [(run_id, m["id"], l["item_id"], l["title"], l["bucket"], l["price"], l["shipping"], l["total"],
@@ -54,8 +54,13 @@ def build(con, models, use_ai=True):
     demo = con.execute("SELECT COUNT(*) FROM runs WHERE source='sample'").fetchone()[0] > 0
     summaries = ai.refresh(con, reports) if use_ai else {
         r[0]: r[1] for r in con.execute("SELECT model_id, text FROM summaries")}
-    site.build(reports, summaries, demo)
+    site.build(reports, summaries, demo, models)
     print(f"Built {len(reports)} model pages{' (DEMO)' if demo else ''}")
+    if not demo:
+        from tracker import discord
+        n = discord.post_deals(con, reports)
+        if n:
+            print(f"Posted {n} new deals to Discord")
 
 
 def main():

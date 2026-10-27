@@ -311,7 +311,9 @@ def market():
             "gpu7": tstats.market_index(reps, "gpu", "chg_7d"), "ram7": tstats.market_index(reps, "ram", "chg_7d"),
             "gpu30": tstats.market_index(reps, "gpu", "chg_30d"), "ram30": tstats.market_index(reps, "ram", "chg_30d"),
             "deals": deals[:8], "site": site, "allListings": listings,
-            "models": [{"id": m["id"], "name": m["name"]} for m in models]}
+            "models": [{"id": m["id"], "name": m["name"]} for m in models],
+            "cats": [{"id": c, "label": v["label"], "chg7": tstats.market_index(reps, c, "chg_7d")}
+                     for c, v in tcfg.load_models()["categories"].items() if any(r["cat"] == c for r in rows)]}
 
 
 def model_history(mid):

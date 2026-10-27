@@ -31,6 +31,13 @@ h1{font-size:28px;margin:28px 0 6px}h2{font-size:20px;margin:32px 0 12px}.sub{co
 footer{margin:48px 0 0;padding:20px 0 40px;border-top:1px solid var(--line);color:var(--mute);font-size:13px}
 .deal{color:var(--down);font-weight:600}
 @media (prefers-color-scheme:dark){.btn{color:#0f1115}}
+nav{display:flex;overflow-x:auto;white-space:nowrap;scrollbar-width:none;flex:1}nav::-webkit-scrollbar{display:none}
+.btn.alt{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.pill{display:inline-block;padding:6px 12px;border:1px solid var(--line);border-radius:99px;margin:0 6px 8px 0;color:var(--ink);background:var(--card)}
+.verdict{font-size:26px;font-weight:800;margin:4px 0}.great{color:var(--down)}.good{color:var(--down)}.fair{color:var(--accent)}.high{color:var(--up)}
+.form{display:grid;gap:10px;max-width:560px}.form input,.form select,.form textarea{font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);width:100%}
+.bar{position:relative;height:12px;border-radius:6px;background:linear-gradient(90deg,var(--down),var(--accent) 50%,var(--up));margin:18px 0 6px}
+.bar i{position:absolute;top:-5px;width:4px;height:22px;background:var(--ink);border-radius:2px}
 @media (max-width:600px){.cards{grid-template-columns:1fr 1fr}.hide-sm{display:none}.tbl th,.tbl td{padding:8px}h1{font-size:24px}}
 """
 
@@ -82,6 +89,22 @@ FAVICON = ("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox
            "stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
 
 
+NAV = ""
+CATS = {}
+
+
+def amazon_url(m):
+    from urllib.parse import quote_plus
+    return f"https://www.amazon.com/s?k={quote_plus(m.get('amazon') or m['name'])}&tag={quote_plus(config.AMAZON_TAG)}"
+
+
+def per_unit(rep):
+    unit = CATS.get(rep["model"]["cat"], {}).get("per")
+    if not unit or not rep.get("per_gb"):
+        return None, None
+    return unit, rep["per_gb"] * (1000 if unit == "TB" else 1)
+
+
 def page(title, desc, body, path, demo=False, jsonld=None):
     canon = f"{config.SITE_URL}/{path}".replace("/index.html", "/")
     banner = '<div class="demo">DEMO DATA — not real prices</div>' if demo else ""
@@ -92,13 +115,15 @@ def page(title, desc, body, path, demo=False, jsonld=None):
 {'<script type="application/ld+json">' + json.dumps(jsonld) + '</script>' if jsonld else ''}
 <meta property="og:title" content="{E(title)}"><meta property="og:description" content="{E(desc)}"><meta property="og:type" content="website">
 {'<meta name="robots" content="noindex">' if demo else ''}
+{f'<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={E(config.ADSENSE_CLIENT)}" crossorigin="anonymous"></script>' if config.ADSENSE_CLIENT and not demo else ''}
 <style>{CSS}</style></head><body>{banner}
 <header><div class="wrap"><a class="brand" href="index.html">{E(config.SITE_NAME)}</a>
-<nav><a href="index.html#gpu">GPUs</a><a href="index.html#ram">RAM</a><a href="about.html">About</a></nav></div></header>
+<nav>{NAV}<a href="check.html">Price check</a><a href="about.html">About</a></nav></div></header>
 <main class="wrap">{body}</main>
 <footer class="wrap">Prices are eBay US fixed-price listings, including shipping, updated automatically.
 As an eBay Partner Network affiliate, this site may earn a commission from qualifying purchases made through its links.
-<a href="about.html">How prices are calculated</a>.</footer>
+{'As an Amazon Associate I earn from qualifying purchases. ' if config.AMAZON_TAG else ''}
+<a href="about.html">How prices are calculated</a> · <a href="privacy.html">Privacy</a>.</footer>
 <script>document.addEventListener("click",function(e){{var a=e.target.closest&&e.target.closest("a[data-m]");if(a&&navigator.sendBeacon)navigator.sendBeacon("/c?m="+encodeURIComponent(a.dataset.m))}});</script></body></html>"""
 
 
@@ -109,7 +134,11 @@ def model_page(rep, summary, demo):
         body = f"<h1>Used {E(name)} price</h1><p class='sub'>Not enough listings yet. Check back after the next update.</p>"
         return page(f"Used {name} Price", f"Used {name} price tracker.", body, f"{m['id']}.html", demo)
     fair = f"{money(cur['p25'])}–{money(cur['p75'])}"
-    per_gb = f'<div class="card"><div class="k">Price per GB</div><div class="v">{money(rep["per_gb"], 2)}</div></div>' if rep.get("per_gb") else ""
+    unit, per = per_unit(rep)
+    per_gb = f'<div class="card"><div class="k">Price per {unit}</div><div class="v">{money(per, 2)}</div></div>' if per else ""
+    amazon = (f'<a class="btn alt" href="{E(amazon_url(m))}" rel="sponsored nofollow noopener" target="_blank">Compare new on Amazon</a> '
+              if config.AMAZON_TAG else "")
+    actions = f'<p>{amazon}<a class="btn alt" href="check.html?m={E(m["id"])}">Is my price good?</a></p>'
     cards = f"""<div class="cards">
 <div class="card"><div class="k">Typical used price</div><div class="v">{money(cur['median'])}</div></div>
 <div class="card"><div class="k">Fair range</div><div class="v" style="font-size:20px">{fair}</div></div>
@@ -135,6 +164,7 @@ def model_page(rep, summary, demo):
     body = f"""<h1>Used {E(name)} price</h1>
 <p class="sub">Updated {E(cur['day'])} · based on {cur['n']} current eBay listings</p>
 {cards}
+{actions}
 <h2>Price history</h2><div class="chart">{chart_svg(rep['series'])}</div>
 {f'<h2>Market read</h2><div class="ai">{E(summary)}</div>' if summary else ''}
 <h2>Cheapest listings from well-rated sellers</h2>{listings}
@@ -148,8 +178,9 @@ def model_page(rep, summary, demo):
 
 
 def table(reports, cat):
-    is_ram = cat == "ram"
-    head = "<tr><th>Model</th><th>Typical used</th>" + ("<th>$/GB</th>" if is_ram else "") + "<th>7d</th><th>30d</th><th>Deals</th></tr>"
+    unit = CATS.get(cat, {}).get("per")
+    is_ram = bool(unit)
+    head = "<tr><th>Model</th><th>Typical used</th>" + (f"<th>$/{unit}</th>" if unit else "") + "<th>7d</th><th>30d</th><th>Deals</th></tr>"
     rows = ""
     for r in reports:
         if r["model"]["cat"] != cat:
@@ -157,7 +188,7 @@ def table(reports, cat):
         c = r["current"]
         rows += (f'<tr><td><a href="{r["model"]["id"]}.html">{E(r["model"]["name"])}</a></td>'
                  f"<td>{money(c and c['median'])}</td>"
-                 + (f"<td>{money(r.get('per_gb'), 2)}</td>" if is_ram else "")
+                 + (f"<td>{money(per_unit(r)[1], 2)}</td>" if is_ram else "")
                  + f"<td>{chg(r['chg_7d'])}</td><td>{chg(r['chg_30d'])}</td>"
                  f"<td>{len(r['deals']) or '—'}</td></tr>")
     return f'<div class="scroll"><table class="tbl">{head}{rows}</table></div>'
@@ -165,10 +196,8 @@ def table(reports, cat):
 
 def index_page(reports, market, summary, demo):
     from .stats import market_index
-    gpu7, gpu30 = market_index(reports, "gpu", "chg_7d"), market_index(reports, "gpu", "chg_30d")
-    ram7, ram30 = market_index(reports, "ram", "chg_7d"), market_index(reports, "ram", "chg_30d")
     deals = sorted((d | {"model": r["model"], "median": r["current"]["median"]} for r in reports for d in r["deals"]),
-                   key=lambda d: d["total"] / d["median"])[:8]
+                   key=lambda d: d["total"] / d["median"])[:10]
     deal_rows = "".join(
         f'<tr><td><a href="{d["model"]["id"]}.html">{E(d["model"]["name"])}</a><br><span class="k">{E(d["title"][:70])}</span></td>'
         f"<td>{money(d['total'], 2)}</td><td class='deal'>{(1 - d['total'] / d['median']) * 100:.0f}% under</td>"
@@ -176,34 +205,105 @@ def index_page(reports, market, summary, demo):
         for d in deals)
     deals_html = (f'<div class="scroll"><table class="tbl"><tr><th>Deal</th><th>Total</th><th>vs typical</th><th></th></tr>{deal_rows}</table></div>'
                   if deal_rows else '<p class="sub">No standout deals right now.</p>')
-    body = f"""<h1>Used GPU &amp; RAM prices, tracked daily</h1>
-<p class="sub">What used graphics cards and memory actually cost right now, from thousands of eBay listings. Updated {E(market)}.</p>
-<div class="cards">
-<div class="card"><div class="k">GPU market · 7d</div><div class="v">{chg(gpu7)}</div></div>
-<div class="card"><div class="k">GPU market · 30d</div><div class="v">{chg(gpu30)}</div></div>
-<div class="card"><div class="k">RAM market · 7d</div><div class="v">{chg(ram7)}</div></div>
-<div class="card"><div class="k">RAM market · 30d</div><div class="v">{chg(ram30)}</div></div>
-</div>
+    cards = "".join(f'<a class="card" href="{c}.html" style="color:inherit"><div class="k">{E(v["label"])} · 30d</div><div class="v">{chg(market_index(reports, c, "chg_30d"))}</div></a>'
+                    for c, v in CATS.items() if any(r["model"]["cat"] == c for r in reports))
+    sections = "".join(f'<h2 id="{c}"><a href="{c}.html" style="color:inherit">{E(v["label"])}</a></h2>{table(reports, c)}'
+                       for c, v in CATS.items() if any(r["model"]["cat"] == c for r in reports))
+    body = f"""<h1>What used tech actually costs today</h1>
+<p class="sub">Typical used prices for graphics cards, CPUs, RAM, SSDs, monitors, consoles and iPhones, from thousands of live eBay listings. Updated {E(market)}.</p>
+<p><a class="btn" href="check.html">Check a price</a></p>
+<div class="cards">{cards}</div>
 {f'<h2>This week</h2><div class="ai">{E(summary)}</div>' if summary else ''}
 <h2>Best deals right now</h2>{deals_html}
-<h2 id="gpu">Graphics cards</h2>{table(reports, 'gpu')}
-<h2 id="ram">Desktop RAM</h2>{table(reports, 'ram')}"""
+{sections}"""
     return page(f"{config.SITE_NAME} — Today's Used Prices & Deals",
-                "Daily used GPU and RAM price tracker: fair prices, price history, trends and the best current deals.",
+                "Daily used price tracker for GPUs, CPUs, RAM, SSDs, monitors, consoles and iPhones: fair prices, history, trends and the best current deals.",
                 body, "index.html", demo)
+
+
+def category_page(cat, reports, demo):
+    from .stats import market_index
+    info = CATS[cat]
+    reps = [r for r in reports if r["model"]["cat"] == cat]
+    deals = sorted((d | {"model": r["model"], "median": r["current"]["median"]} for r in reps for d in r["deals"]),
+                   key=lambda d: d["total"] / d["median"])[:8]
+    deal_rows = "".join(
+        f'<tr><td><a href="{d["model"]["id"]}.html">{E(d["model"]["name"])}</a><br><span class="k">{E(d["title"][:70])}</span></td>'
+        f"<td>{money(d['total'], 2)}</td><td class='deal'>{(1 - d['total'] / d['median']) * 100:.0f}% under</td>"
+        f'<td><a class="btn" data-m="{E(d["model"]["id"])}" href="{E(d["url"] or "#")}" rel="sponsored nofollow noopener" target="_blank">View</a></td></tr>'
+        for d in deals)
+    body = f"""<h1>Used {E(info['label'].lower() if cat != 'phone' else 'iPhone')} prices</h1>
+<p class="sub">{E(info.get('intro', ''))} Typical market change: 7 days {chg(market_index(reports, cat, 'chg_7d'))} · 30 days {chg(market_index(reports, cat, 'chg_30d'))}.</p>
+{table(reports, cat)}
+<h2>Best {E(info['short'])} deals right now</h2>
+{f'<div class="scroll"><table class="tbl"><tr><th>Deal</th><th>Total</th><th>vs typical</th><th></th></tr>{deal_rows}</table></div>' if deal_rows else '<p class="sub">No standout deals right now.</p>'}
+<p><a class="btn alt" href="check.html">Check a price</a></p>"""
+    title = f"Used {info['short']} Prices Today — Fair Prices, History & Deals" if cat != "phone" else "Used iPhone Prices Today — Unlocked iPhone Values & Deals"
+    return page(title, f"What used {info['label'].lower()} cost right now: typical prices, trends and deals from live eBay listings.",
+                body, f"{cat}.html", demo)
+
+
+def check_page(demo):
+    body = r"""<h1>Is this a good price?</h1>
+<p class="sub">Paste a listing title or pick a model, enter the total price including shipping, and see how it compares to the live used market.</p>
+<div class="form">
+<textarea id="t" rows="2" placeholder="Paste a listing title, e.g. ASUS TUF RTX 3080 10GB OC"></textarea>
+<select id="m"><option value="">Pick a model…</option></select>
+<input id="p" type="number" inputmode="decimal" placeholder="Total price incl. shipping ($)">
+</div>
+<div id="out" style="margin-top:20px"></div>
+<script>
+(function(){var D=null,$=function(i){return document.getElementById(i)};
+function norm(s){return s.toLowerCase().replace(/\s+/g," ")}
+function match(t){t=norm(t);var c=t.replace(/ /g,""),best=null,score=0;D.models.forEach(function(m){
+ if(!m.must.every(function(w){w=w.toLowerCase();return t.indexOf(w)>=0||c.indexOf(w.replace(/ /g,""))>=0}))return;
+ if(m.exclude.some(function(w){return new RegExp("(^|[^a-z0-9])"+w.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"s?($|[^a-z0-9])").test(t)}))return;
+ var s=m.must.join("").length;if(s>score){score=s;best=m}});return best}
+function money(v){return "$"+Math.round(v).toLocaleString()}
+function run(){var id=$("m").value,p=parseFloat($("p").value),m=D.models.find(function(x){return x.id===id});
+ if(!m){$("out").innerHTML="";return}
+ if(!m.cur){$("out").innerHTML="<p class='sub'>Not enough data for this model yet.</p>";return}
+ var c=m.cur,h='<div class="card"><div class="k">'+m.name+' · typical used</div><div class="v">'+money(c.median)+'</div><div class="k">fair range '+money(c.p25)+'–'+money(c.p75)+(m.low90?' · 90-day low '+money(m.low90):'')+'</div></div>';
+ if(p>0){var v,cl;if(p<=c.median*0.85){v="Great deal";cl="great"}else if(p<=c.p25){v="Good price";cl="good"}else if(p<=c.p75){v="Fair price";cl="fair"}else{v="Above market";cl="high"}
+  var lo=c.p25-(c.p75-c.p25),hi=c.p75+(c.p75-c.p25),pos=Math.max(0,Math.min(100,(p-lo)/(hi-lo)*100)),d=(p-c.median)/c.median*100;
+  h='<div class="verdict '+cl+'">'+v+'</div><p>'+money(p)+' is '+Math.abs(d).toFixed(0)+'% '+(d<0?'below':'above')+' the typical used price.</p>'
+   +'<div class="bar"><i style="left:calc('+pos+'% - 2px)"></i></div><div class="k" style="display:flex;justify-content:space-between"><span>cheap</span><span>typical</span><span>expensive</span></div>'+h
+   +'<p class="k">Check the seller rating, photos and return policy before buying. Prices well under market can be scams.</p>';
+  history.replaceState(null,"","?m="+id+"&p="+p)}
+ h+='<p><a class="btn" href="'+m.id+'.html">Price history &amp; best listings</a></p>';$("out").innerHTML=h}
+fetch("data/index.json").then(function(r){return r.json()}).then(function(d){D=d;
+ var g={};d.models.forEach(function(m){(g[m.cat]=g[m.cat]||[]).push(m)});
+ Object.keys(g).forEach(function(k){var og=document.createElement("optgroup");og.label=d.cats[k];g[k].forEach(function(m){var o=document.createElement("option");o.value=m.id;o.textContent=m.name;og.appendChild(o)});$("m").appendChild(og)});
+ var q=new URLSearchParams(location.search);if(q.get("m"))$("m").value=q.get("m");if(q.get("p"))$("p").value=q.get("p");run()});
+$("t").addEventListener("input",function(){var m=match($("t").value);if(m){$("m").value=m.id;run()}});
+$("m").addEventListener("change",run);$("p").addEventListener("input",run);})();
+</script>"""
+    return page(f"Used Price Checker — Is It a Good Deal? | {config.SITE_NAME}",
+                "Check if a used GPU, CPU, RAM kit, SSD, monitor, console or iPhone is a good price, compared to live eBay market data.",
+                body, "check.html", demo)
+
+
+def privacy_page(demo):
+    contact = f' Contact: <a href="mailto:{E(config.CONTACT_EMAIL)}">{E(config.CONTACT_EMAIL)}</a>.' if config.CONTACT_EMAIL else ""
+    body = f"""<h1>Privacy</h1>
+<p>This site has no accounts and no sign-up. Our web server keeps standard access logs (page requested, time, browser type, referring site) to count visits and keep the site secure. Visitor counts use a one-way hash that changes daily; IP addresses are not stored in our statistics.</p>
+<p><b>Affiliate links.</b> Links to eBay{' and Amazon' if config.AMAZON_TAG else ''} are affiliate links. When you click one, that store may set cookies to credit this site for a purchase, under its own privacy policy.</p>
+{'<p><b>Advertising.</b> This site uses Google AdSense. Google and its partners use cookies to serve ads based on your visits to this and other websites. You can opt out of personalized advertising at <a href="https://adssettings.google.com" rel="noopener">Google Ads Settings</a>. See <a href="https://policies.google.com/technologies/partner-sites" rel="noopener">how Google uses data from partner sites</a>.</p>' if config.ADSENSE_CLIENT else '<p><b>Advertising.</b> If ads are added, they may be served by Google AdSense, which uses cookies; this page will be updated with details and opt-out links.</p>'}
+<p>We don't sell personal information.{contact}</p>"""
+    return page(f"Privacy — {config.SITE_NAME}", "Privacy policy.", body, "privacy.html", demo)
 
 
 def about_page(demo):
     body = """<h1>How prices are calculated</h1>
 <p>Every few hours we collect active fixed-price eBay US listings for each tracked model using eBay's official API.</p>
-<p>We remove listings that aren't the actual working product (parts, boxes, bundles, laptops, other variants) and statistical outliers, then add shipping to each price.</p>
+<p>We remove listings that aren't the actual working product (for parts, locked phones, empty boxes, bundles, other variants) and statistical outliers, then add shipping to each price. iPhone prices are for unlocked phones only.</p>
 <ul><li><b>Typical used price</b>: the median of the remaining used and refurbished listings.</li>
 <li><b>Fair range</b>: the middle 50% of listings (25th to 75th percentile).</li>
 <li><b>Deal</b>: a listing at least 15% under the typical price from a seller with 98%+ positive feedback.</li>
 <li><b>Market change</b>: the average change of the typical price across all tracked models.</li></ul>
 <p>These are asking prices, not guaranteed sale prices. Always check the listing, seller and return policy before buying.</p>
 <p><b>Affiliate disclosure:</b> links to eBay are affiliate links. If you buy through them, this site may earn a commission at no extra cost to you. It does not change which listings are shown.</p>"""
-    return page(f"About — {config.SITE_NAME}", "How used GPU and RAM prices are calculated.", body, "about.html", demo)
+    return page(f"About — {config.SITE_NAME}", "How used tech prices are calculated.", body, "about.html", demo)
 
 
 def _sync(src, dst):
@@ -218,7 +318,10 @@ def _sync(src, dst):
         shutil.move(str(child), str(dst / child.name))
 
 
-def build(reports, summaries, demo):
+def build(reports, summaries, demo, models=None):
+    global NAV, CATS
+    CATS = (models or config.load_models())["categories"]
+    NAV = "".join(f'<a href="{c}.html">{E(v["short"])}</a>' for c, v in CATS.items() if any(r["model"]["cat"] == c for r in reports))
     final = config.SITE_DIR
     out = final.parent / (final.name + ".building")
     if out.exists():
@@ -227,13 +330,26 @@ def build(reports, summaries, demo):
     market_day = max((r["current"]["day"] for r in reports if r["current"]), default="—")
     (out / "index.html").write_text(index_page(reports, market_day, summaries.get("_market"), demo))
     (out / "about.html").write_text(about_page(demo))
+    (out / "check.html").write_text(check_page(demo))
+    (out / "privacy.html").write_text(privacy_page(demo))
+    cats_used = [c for c in CATS if any(r["model"]["cat"] == c for r in reports)]
+    for c in cats_used:
+        (out / f"{c}.html").write_text(category_page(c, reports, demo))
+    (out / "data" / "index.json").write_text(json.dumps({
+        "cats": {c: CATS[c]["label"] for c in cats_used},
+        "models": [{"id": r["model"]["id"], "name": r["model"]["name"], "cat": r["model"]["cat"],
+                    "must": r["model"].get("must", []), "exclude": r["model"].get("exclude", []) + CATS[r["model"]["cat"]].get("exclude", []),
+                    "cur": r["current"] and {k: r["current"][k] for k in ("median", "p25", "p75", "low", "n", "day")},
+                    "low90": min((p["median"] for p in r["series"][-90:]), default=None)} for r in reports]}, separators=(",", ":")))
+    if config.ADSENSE_CLIENT:
+        (out / "ads.txt").write_text(f"google.com, {config.ADSENSE_CLIENT.replace('ca-', '')}, DIRECT, f08c47fec0942fa0\n")
     for r in reports:
         (out / f"{r['model']['id']}.html").write_text(model_page(r, summaries.get(r["model"]["id"]), demo))
         (out / "data" / f"{r['model']['id']}.json").write_text(json.dumps({
             "model": r["model"]["name"], "current": r["current"], "change_7d": r["chg_7d"],
             "change_30d": r["chg_30d"], "history": r["series"][-365:]}, indent=1))
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    urls = ["", "about.html"] + [f"{r['model']['id']}.html" for r in reports]
+    urls = ["", "check.html", "about.html", "privacy.html"] + [f"{c}.html" for c in cats_used] + [f"{r['model']['id']}.html" for r in reports]
     (out / "sitemap.xml").write_text(
         '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
         + "".join(f"<url><loc>{config.SITE_URL}/{u}</loc><lastmod>{now}</lastmod></url>\n" for u in urls)
@@ -242,7 +358,7 @@ def build(reports, summaries, demo):
         ("User-agent: *\nDisallow: /\n" if demo else f"User-agent: *\nAllow: /\nSitemap: {config.SITE_URL}/sitemap.xml\n"))
     (out / ".nojekyll").write_text("")
     (out / "404.html").write_text(page(f"Not found — {config.SITE_NAME}", "Page not found.",
-        '<h1>Page not found</h1><p class="sub">That page doesn\'t exist. <a href="index.html">See all used GPU &amp; RAM prices</a>.</p>',
+        '<h1>Page not found</h1><p class="sub">That page doesn\'t exist. <a href="index.html">See all used prices</a>.</p>',
         "404.html", demo))
     _sync(out, final)
     shutil.rmtree(out)

@@ -178,10 +178,11 @@ setenv)  # setenv KEY VALUE -> writes into .env (created from .env.example), chm
   chmod 600 .env
   sed -i '/^[a-z][a-z]*=/d' .env   # drop lowercase junk keys from VNC typing
   k=$(echo "$2" | tr a-z A-Z | tr -d '_')   # VNC can't type _ or capitals: accept "epncampaignid"
-  case $k in EPNCAMPAIGNID) k=EPN_CAMPAIGN_ID;; EBAYCLIENTID) k=EBAY_CLIENT_ID;; EBAYCLIENTSECRET) k=EBAY_CLIENT_SECRET;; *) k=$2;; esac
+  case $k in EPNCAMPAIGNID) k=EPN_CAMPAIGN_ID;; EBAYCLIENTID) k=EBAY_CLIENT_ID;; EBAYCLIENTSECRET) k=EBAY_CLIENT_SECRET;;
+    AMAZONTAG) k=AMAZON_TAG;; ADSENSECLIENT) k=ADSENSE_CLIENT;; CONTACTEMAIL) k=CONTACT_EMAIL;; SITENAME) k=SITE_NAME;; SITEURL) k=SITE_URL;; *) k=$2;; esac
   set -- "$1" "$k" "$3"
   if grep -q "^$2=" .env; then sed -i "s|^$2=.*|$2=$3|" .env; else echo "$2=$3" >> .env; fi
-  grep "^$2=" .env | sed -E 's/(SECRET=).+/\1*****/'
+  grep "^$2=" .env | sed -E 's/(SECRET=|WEBHOOK=).+/\1*****/'
   ;;
 cloudsetup)  # one-time: connect Google Drive (browser sign-in) + encrypted remote + weekly timer
   sudo apt-get install -y -qq rclone zstd >/dev/null
@@ -288,6 +289,37 @@ lockdown)  # admin tools (Portainer, Cockpit, Glances, raw site port) reachable 
     "[Install]" "WantedBy=multi-user.target" | sudo tee /etc/systemd/system/orbit-lockdown.service >/dev/null
   sudo systemctl daemon-reload && sudo systemctl enable orbit-lockdown.service >/dev/null 2>&1 && sudo systemctl restart orbit-lockdown.service
   echo "LAN blocked: 9090 9443 8088 61208 (Tailscale and localhost unaffected)"
+  ;;
+domain)  # bash p.sh domain example.com : serve the site on your own domain through a Cloudflare Tunnel (no open ports)
+  d=${2:-}; [ -n "$d" ] || { echo "usage: bash p.sh domain example.com  (domain must already be on your Cloudflare account)"; exit 1; }
+  if ! command -v cloudflared >/dev/null; then
+    sudo mkdir -p --mode=0755 /usr/share/keyrings
+    curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
+    echo 'deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main' | sudo tee /etc/apt/sources.list.d/cloudflared.list >/dev/null
+    sudo apt-get update -qq && sudo apt-get install -y -qq cloudflared || { echo "cloudflared install failed"; exit 1; }
+  fi
+  [ -f ~/.cloudflared/cert.pem ] || { echo ">>> Open the link below, sign in to Cloudflare and click $d to authorize:"; cloudflared tunnel login || exit 1; }
+  cloudflared tunnel list -o json | python3 -c 'import json,sys;sys.exit(0 if any(t["name"]=="site" for t in json.load(sys.stdin)) else 1)' || cloudflared tunnel create site
+  id=$(cloudflared tunnel list -o json | python3 -c 'import json,sys;print([t["id"] for t in json.load(sys.stdin) if t["name"]=="site"][0])')
+  cloudflared tunnel route dns --overwrite-dns site "$d" && cloudflared tunnel route dns --overwrite-dns site "www.$d"
+  sudo mkdir -p /etc/cloudflared && sudo cp ~/.cloudflared/"$id".json /etc/cloudflared/ && sudo chmod 600 /etc/cloudflared/"$id".json
+  printf '%s\n' "tunnel: $id" "credentials-file: /etc/cloudflared/$id.json" "ingress:" \
+    "  - hostname: $d" "    service: http://127.0.0.1:8088" "  - hostname: www.$d" "    service: http://127.0.0.1:8088" \
+    "  - service: http_status:404" | sudo tee /etc/cloudflared/config.yml >/dev/null
+  systemctl list-unit-files cloudflared.service >/dev/null 2>&1 && systemctl cat cloudflared >/dev/null 2>&1 || sudo cloudflared service install
+  sudo systemctl enable cloudflared >/dev/null 2>&1; sudo systemctl restart cloudflared
+  bash "$0" setenv SITE_URL "https://$d"
+  bash "$0" web 127.0.0.1
+  [ -f /home/pi/site/index.html ] && python3 run.py build --no-ai
+  sudo tailscale funnel --https=443 off >/dev/null 2>&1 || true
+  sleep 5; echo "https://$d -> $(curl -s -o /dev/null -w '%{http_code}' https://$d/)"
+  ;;
+discord)  # paste your Discord channel webhook URL (hidden) and send a test message
+  read -rsp "Discord webhook URL (hidden): " wh; echo
+  case "$wh" in https://discord.com/api/webhooks/*|https://discordapp.com/api/webhooks/*) ;; *) echo "That isn't a Discord webhook URL"; exit 1;; esac
+  bash "$0" setenv DISCORD_WEBHOOK "$wh" >/dev/null
+  python3 -c 'import json,urllib.request,sys;u=sys.argv[1];urllib.request.urlopen(urllib.request.Request(u,json.dumps({"content":"Deal alerts connected. New deals will post here after each price update."}).encode(),{"Content-Type":"application/json","User-Agent":"UsedTechPrices-DealBot/1"}),timeout=20);print("Discord OK: test message sent")' "$wh" || echo "Test failed - check the URL"
+  unset wh
   ;;
 autoupdate)  # automatic daily security updates (unattended-upgrades), no automatic reboots
   sudo apt-get install -y -qq unattended-upgrades apt-listchanges >/dev/null

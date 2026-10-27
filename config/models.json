@@ -1,39 +1,1044 @@
 {
-  "_note": "Tracked products. 'query' is sent to eBay search. 'must' = all words required in title (case-insensitive). 'exclude' = extra words that reject a listing. 'min'/'max' = sane USD price window; anything outside is dropped before stats. RAM 'gb' = total kit capacity, used for price per GB.",
-  "categories": {
-    "gpu": {"label": "Graphics Cards", "ebay_category_id": "27386"},
-    "ram": {"label": "Desktop RAM", "ebay_category_id": "170083"}
+ "_note": "Tracked products. 'query' is sent to eBay search. 'must' = all words required in title (case-insensitive). 'exclude' = extra words that reject a listing (global + category + model lists all apply). 'min'/'max' = sane USD price window. 'gb' = capacity, used for price per GB (RAM) or per TB (SSD). 'amazon' = optional Amazon search phrase.",
+ "categories": {
+  "gpu": {
+   "label": "Graphics Cards",
+   "short": "GPUs",
+   "ebay_category_id": "27386",
+   "exclude": [
+    "no gpu",
+    "artifact",
+    "artifacts",
+    "bracket",
+    "backplate",
+    "fan replacement",
+    "fans only",
+    "cooler only",
+    "waterblock",
+    "water block",
+    "laptop",
+    "mining rig",
+    "bundle"
+   ],
+   "intro": "Used graphics card prices from eBay listings, including shipping."
   },
-  "global_exclude": [
-    "for parts", "parts only", "not working", "broken", "faulty", "defective", "as is", "as-is",
-    "box only", "empty box", "no gpu", "read description", "untested", "artifact",
-    "bracket", "backplate", "fan replacement", "fans only", "cooler only", "waterblock", "water block",
-    "laptop", "lot of", "bundle", "pc build", "gaming pc", "desktop computer", "motherboard combo",
-    "sodimm", "so-dimm", "ecc", "registered", "rdimm", "server"
-  ],
-  "models": [
-    {"id": "rtx-3060-12gb", "cat": "gpu", "name": "NVIDIA RTX 3060 12GB", "query": "RTX 3060 12GB", "must": ["3060", "12"], "exclude": ["3060 ti", "3060ti"], "min": 120, "max": 400},
-    {"id": "rtx-3060-ti", "cat": "gpu", "name": "NVIDIA RTX 3060 Ti", "query": "RTX 3060 Ti", "must": ["3060", "ti"], "exclude": [], "min": 130, "max": 400},
-    {"id": "rtx-3070", "cat": "gpu", "name": "NVIDIA RTX 3070", "query": "RTX 3070", "must": ["3070"], "exclude": ["3070 ti", "3070ti"], "min": 150, "max": 500},
-    {"id": "rtx-3080", "cat": "gpu", "name": "NVIDIA RTX 3080", "query": "RTX 3080", "must": ["3080"], "exclude": ["3080 ti", "3080ti"], "min": 200, "max": 700},
-    {"id": "rtx-3090", "cat": "gpu", "name": "NVIDIA RTX 3090", "query": "RTX 3090", "must": ["3090"], "exclude": ["3090 ti", "3090ti"], "min": 400, "max": 1400},
-    {"id": "rtx-4060", "cat": "gpu", "name": "NVIDIA RTX 4060", "query": "RTX 4060", "must": ["4060"], "exclude": ["4060 ti", "4060ti"], "min": 150, "max": 450},
-    {"id": "rtx-4070", "cat": "gpu", "name": "NVIDIA RTX 4070", "query": "RTX 4070", "must": ["4070"], "exclude": ["4070 ti", "4070ti", "super"], "min": 300, "max": 800},
-    {"id": "rtx-4070-super", "cat": "gpu", "name": "NVIDIA RTX 4070 Super", "query": "RTX 4070 Super", "must": ["4070", "super"], "exclude": ["ti"], "min": 350, "max": 900},
-    {"id": "rtx-4080", "cat": "gpu", "name": "NVIDIA RTX 4080", "query": "RTX 4080", "must": ["4080"], "exclude": ["super"], "min": 600, "max": 1500},
-    {"id": "rtx-4090", "cat": "gpu", "name": "NVIDIA RTX 4090", "query": "RTX 4090", "must": ["4090"], "exclude": [], "min": 1000, "max": 3500},
-    {"id": "rx-6700-xt", "cat": "gpu", "name": "AMD RX 6700 XT", "query": "RX 6700 XT", "must": ["6700", "xt"], "exclude": [], "min": 130, "max": 450},
-    {"id": "rx-6800-xt", "cat": "gpu", "name": "AMD RX 6800 XT", "query": "RX 6800 XT", "must": ["6800", "xt"], "exclude": [], "min": 220, "max": 650},
-    {"id": "rx-7800-xt", "cat": "gpu", "name": "AMD RX 7800 XT", "query": "RX 7800 XT", "must": ["7800", "xt"], "exclude": [], "min": 280, "max": 700},
-    {"id": "rx-7900-xtx", "cat": "gpu", "name": "AMD RX 7900 XTX", "query": "RX 7900 XTX", "must": ["7900", "xtx"], "exclude": [], "min": 500, "max": 1300},
-
-    {"id": "ddr4-16gb-3200", "cat": "ram", "name": "DDR4 16GB (2x8GB) 3200", "query": "DDR4 16GB 2x8GB 3200 desktop", "must": ["ddr4", "16gb", "3200"], "exclude": ["32gb", "64gb", "1x16"], "min": 15, "max": 200, "gb": 16},
-    {"id": "ddr4-32gb-3200", "cat": "ram", "name": "DDR4 32GB (2x16GB) 3200", "query": "DDR4 32GB 2x16GB 3200 desktop", "must": ["ddr4", "32gb", "3200"], "exclude": ["64gb", "1x32"], "min": 30, "max": 300, "gb": 32},
-    {"id": "ddr4-32gb-3600", "cat": "ram", "name": "DDR4 32GB (2x16GB) 3600", "query": "DDR4 32GB 2x16GB 3600 desktop", "must": ["ddr4", "32gb", "3600"], "exclude": ["64gb", "1x32"], "min": 30, "max": 300, "gb": 32},
-    {"id": "ddr4-64gb-3200", "cat": "ram", "name": "DDR4 64GB (2x32GB) 3200", "query": "DDR4 64GB 2x32GB 3200 desktop", "must": ["ddr4", "64gb"], "exclude": ["128gb", "4x16"], "min": 60, "max": 500, "gb": 64},
-    {"id": "ddr5-32gb-6000", "cat": "ram", "name": "DDR5 32GB (2x16GB) 6000", "query": "DDR5 32GB 2x16GB 6000 desktop", "must": ["ddr5", "32gb", "6000"], "exclude": ["64gb", "1x32"], "min": 50, "max": 500, "gb": 32},
-    {"id": "ddr5-32gb-5600", "cat": "ram", "name": "DDR5 32GB (2x16GB) 5600", "query": "DDR5 32GB 2x16GB 5600 desktop", "must": ["ddr5", "32gb", "5600"], "exclude": ["64gb", "1x32"], "min": 50, "max": 500, "gb": 32},
-    {"id": "ddr5-64gb-6000", "cat": "ram", "name": "DDR5 64GB (2x32GB) 6000", "query": "DDR5 64GB 2x32GB 6000 desktop", "must": ["ddr5", "64gb", "6000"], "exclude": ["128gb", "4x16"], "min": 100, "max": 900, "gb": 64},
-    {"id": "ddr5-96gb-6400", "cat": "ram", "name": "DDR5 96GB (2x48GB) 6400", "query": "DDR5 96GB 2x48GB desktop", "must": ["ddr5", "96gb"], "exclude": ["192gb"], "min": 150, "max": 1300, "gb": 96}
-  ]
+  "cpu": {
+   "label": "Processors",
+   "short": "CPUs",
+   "ebay_category_id": "164",
+   "exclude": [
+    "cooler only",
+    "motherboard",
+    "combo",
+    "mobo",
+    "bent pins",
+    "delidded",
+    "engineering sample",
+    "es",
+    "qs",
+    "laptop",
+    "heatsink",
+    "bundle"
+   ],
+   "intro": "Used desktop CPU prices for current AMD Ryzen and Intel Core chips."
+  },
+  "ram": {
+   "label": "Desktop RAM",
+   "short": "RAM",
+   "ebay_category_id": "170083",
+   "per": "GB",
+   "exclude": [
+    "sodimm",
+    "so-dimm",
+    "ecc",
+    "registered",
+    "rdimm",
+    "server",
+    "laptop",
+    "bundle"
+   ],
+   "intro": "Used desktop memory kits, with price per GB."
+  },
+  "ssd": {
+   "label": "SSDs",
+   "short": "SSDs",
+   "ebay_category_id": "175669",
+   "per": "TB",
+   "exclude": [
+    "enclosure",
+    "caddy",
+    "adapter",
+    "heatsink only",
+    "bracket",
+    "laptop",
+    "macbook",
+    "heat sink only",
+    "external"
+   ],
+   "intro": "Used NVMe and SATA solid-state drive prices, with price per TB."
+  },
+  "monitor": {
+   "label": "Gaming Monitors",
+   "short": "Monitors",
+   "ebay_category_id": "80053",
+   "exclude": [
+    "stand only",
+    "no stand",
+    "cracked",
+    "lines",
+    "burn in",
+    "burn-in",
+    "dead pixel",
+    "dead pixels",
+    "remote only",
+    "power supply only",
+    "box only"
+   ],
+   "intro": "Used gaming monitor prices for popular 1440p and OLED models."
+  },
+  "console": {
+   "label": "Game Consoles",
+   "short": "Consoles",
+   "ebay_category_id": "139971",
+   "exclude": [
+    "controller only",
+    "case only",
+    "shell",
+    "faceplate",
+    "no power",
+    "hdmi port",
+    "console only box",
+    "banned",
+    "skin",
+    "stand only",
+    "dock only",
+    "charger only",
+    "account"
+   ],
+   "intro": "Used game console prices for PlayStation, Xbox, Nintendo and Steam Deck."
+  },
+  "phone": {
+   "label": "iPhones",
+   "short": "iPhones",
+   "ebay_category_id": "9355",
+   "exclude": [
+    "icloud locked",
+    "icloud lock",
+    "activation lock",
+    "bad esn",
+    "blacklisted",
+    "blacklist",
+    "cracked",
+    "case only",
+    "screen only",
+    "housing",
+    "back glass",
+    "battery only",
+    "logic board",
+    "motherboard",
+    "read",
+    "finance",
+    "financed",
+    "mdm",
+    "carrier locked",
+    "locked to"
+   ],
+   "intro": "Used unlocked iPhone prices by model and storage."
+  }
+ },
+ "global_exclude": [
+  "for parts",
+  "parts only",
+  "not working",
+  "broken",
+  "faulty",
+  "defective",
+  "as is",
+  "as-is",
+  "box only",
+  "empty box",
+  "read description",
+  "untested",
+  "lot of",
+  "pc build",
+  "gaming pc",
+  "desktop computer",
+  "replica",
+  "fake",
+  "clone",
+  "damaged",
+  "repair"
+ ],
+ "models": [
+  {
+   "id": "rtx-3060-12gb",
+   "cat": "gpu",
+   "name": "NVIDIA RTX 3060 12GB",
+   "query": "RTX 3060 12GB",
+   "must": [
+    "3060",
+    "12"
+   ],
+   "exclude": [
+    "3060 ti",
+    "3060ti"
+   ],
+   "min": 120,
+   "max": 400
+  },
+  {
+   "id": "rtx-3060-ti",
+   "cat": "gpu",
+   "name": "NVIDIA RTX 3060 Ti",
+   "query": "RTX 3060 Ti",
+   "must": [
+    "3060",
+    "ti"
+   ],
+   "exclude": [],
+   "min": 130,
+   "max": 400
+  },
+  {
+   "id": "rtx-3070",
+   "cat": "gpu",
+   "name": "NVIDIA RTX 3070",
+   "query": "RTX 3070",
+   "must": [
+    "3070"
+   ],
+   "exclude": [
+    "3070 ti",
+    "3070ti"
+   ],
+   "min": 150,
+   "max": 500
+  },
+  {
+   "id": "rtx-3080",
+   "cat": "gpu",
+   "name": "NVIDIA RTX 3080",
+   "query": "RTX 3080",
+   "must": [
+    "3080"
+   ],
+   "exclude": [
+    "3080 ti",
+    "3080ti"
+   ],
+   "min": 200,
+   "max": 700
+  },
+  {
+   "id": "rtx-3090",
+   "cat": "gpu",
+   "name": "NVIDIA RTX 3090",
+   "query": "RTX 3090",
+   "must": [
+    "3090"
+   ],
+   "exclude": [
+    "3090 ti",
+    "3090ti"
+   ],
+   "min": 400,
+   "max": 1400
+  },
+  {
+   "id": "rtx-4060",
+   "cat": "gpu",
+   "name": "NVIDIA RTX 4060",
+   "query": "RTX 4060",
+   "must": [
+    "4060"
+   ],
+   "exclude": [
+    "4060 ti",
+    "4060ti"
+   ],
+   "min": 150,
+   "max": 450
+  },
+  {
+   "id": "rtx-4070",
+   "cat": "gpu",
+   "name": "NVIDIA RTX 4070",
+   "query": "RTX 4070",
+   "must": [
+    "4070"
+   ],
+   "exclude": [
+    "4070 ti",
+    "4070ti",
+    "super"
+   ],
+   "min": 300,
+   "max": 800
+  },
+  {
+   "id": "rtx-4070-super",
+   "cat": "gpu",
+   "name": "NVIDIA RTX 4070 Super",
+   "query": "RTX 4070 Super",
+   "must": [
+    "4070",
+    "super"
+   ],
+   "exclude": [
+    "ti"
+   ],
+   "min": 350,
+   "max": 900
+  },
+  {
+   "id": "rtx-4080",
+   "cat": "gpu",
+   "name": "NVIDIA RTX 4080",
+   "query": "RTX 4080",
+   "must": [
+    "4080"
+   ],
+   "exclude": [
+    "super"
+   ],
+   "min": 600,
+   "max": 1500
+  },
+  {
+   "id": "rtx-4090",
+   "cat": "gpu",
+   "name": "NVIDIA RTX 4090",
+   "query": "RTX 4090",
+   "must": [
+    "4090"
+   ],
+   "exclude": [],
+   "min": 1000,
+   "max": 3500
+  },
+  {
+   "id": "rx-6700-xt",
+   "cat": "gpu",
+   "name": "AMD RX 6700 XT",
+   "query": "RX 6700 XT",
+   "must": [
+    "6700",
+    "xt"
+   ],
+   "exclude": [],
+   "min": 130,
+   "max": 450
+  },
+  {
+   "id": "rx-6800-xt",
+   "cat": "gpu",
+   "name": "AMD RX 6800 XT",
+   "query": "RX 6800 XT",
+   "must": [
+    "6800",
+    "xt"
+   ],
+   "exclude": [],
+   "min": 220,
+   "max": 650
+  },
+  {
+   "id": "rx-7800-xt",
+   "cat": "gpu",
+   "name": "AMD RX 7800 XT",
+   "query": "RX 7800 XT",
+   "must": [
+    "7800",
+    "xt"
+   ],
+   "exclude": [],
+   "min": 280,
+   "max": 700
+  },
+  {
+   "id": "rx-7900-xtx",
+   "cat": "gpu",
+   "name": "AMD RX 7900 XTX",
+   "query": "RX 7900 XTX",
+   "must": [
+    "7900",
+    "xtx"
+   ],
+   "exclude": [],
+   "min": 500,
+   "max": 1300
+  },
+  {
+   "id": "ryzen-5-5600x",
+   "cat": "cpu",
+   "name": "AMD Ryzen 5 5600X",
+   "query": "Ryzen 5 5600X",
+   "must": [
+    "5600x"
+   ],
+   "exclude": [],
+   "min": 50,
+   "max": 170
+  },
+  {
+   "id": "ryzen-7-5800x3d",
+   "cat": "cpu",
+   "name": "AMD Ryzen 7 5800X3D",
+   "query": "Ryzen 7 5800X3D",
+   "must": [
+    "5800x3d"
+   ],
+   "exclude": [],
+   "min": 170,
+   "max": 420
+  },
+  {
+   "id": "ryzen-5-7600x",
+   "cat": "cpu",
+   "name": "AMD Ryzen 5 7600X",
+   "query": "Ryzen 5 7600X",
+   "must": [
+    "7600x"
+   ],
+   "exclude": [
+    "7600x3d"
+   ],
+   "min": 100,
+   "max": 260
+  },
+  {
+   "id": "ryzen-7-7800x3d",
+   "cat": "cpu",
+   "name": "AMD Ryzen 7 7800X3D",
+   "query": "Ryzen 7 7800X3D",
+   "must": [
+    "7800x3d"
+   ],
+   "exclude": [],
+   "min": 240,
+   "max": 520
+  },
+  {
+   "id": "ryzen-7-9800x3d",
+   "cat": "cpu",
+   "name": "AMD Ryzen 7 9800X3D",
+   "query": "Ryzen 7 9800X3D",
+   "must": [
+    "9800x3d"
+   ],
+   "exclude": [],
+   "min": 350,
+   "max": 650
+  },
+  {
+   "id": "ryzen-9-7950x",
+   "cat": "cpu",
+   "name": "AMD Ryzen 9 7950X",
+   "query": "Ryzen 9 7950X",
+   "must": [
+    "7950x"
+   ],
+   "exclude": [
+    "7950x3d"
+   ],
+   "min": 280,
+   "max": 650
+  },
+  {
+   "id": "core-i5-12600k",
+   "cat": "cpu",
+   "name": "Intel Core i5-12600K",
+   "query": "Intel i5-12600K",
+   "must": [
+    "12600k"
+   ],
+   "exclude": [
+    "12600kf"
+   ],
+   "min": 80,
+   "max": 230
+  },
+  {
+   "id": "core-i7-12700k",
+   "cat": "cpu",
+   "name": "Intel Core i7-12700K",
+   "query": "Intel i7-12700K",
+   "must": [
+    "12700k"
+   ],
+   "exclude": [
+    "12700kf"
+   ],
+   "min": 120,
+   "max": 300
+  },
+  {
+   "id": "core-i7-13700k",
+   "cat": "cpu",
+   "name": "Intel Core i7-13700K",
+   "query": "Intel i7-13700K",
+   "must": [
+    "13700k"
+   ],
+   "exclude": [
+    "13700kf"
+   ],
+   "min": 170,
+   "max": 400
+  },
+  {
+   "id": "core-i9-13900k",
+   "cat": "cpu",
+   "name": "Intel Core i9-13900K",
+   "query": "Intel i9-13900K",
+   "must": [
+    "13900k"
+   ],
+   "exclude": [
+    "13900kf",
+    "13900ks"
+   ],
+   "min": 240,
+   "max": 600
+  },
+  {
+   "id": "ddr4-16gb-3200",
+   "cat": "ram",
+   "name": "DDR4 16GB (2x8GB) 3200",
+   "query": "DDR4 16GB 2x8GB 3200 desktop",
+   "must": [
+    "ddr4",
+    "16gb",
+    "3200"
+   ],
+   "exclude": [
+    "32gb",
+    "64gb",
+    "1x16"
+   ],
+   "min": 15,
+   "max": 200,
+   "gb": 16
+  },
+  {
+   "id": "ddr4-32gb-3200",
+   "cat": "ram",
+   "name": "DDR4 32GB (2x16GB) 3200",
+   "query": "DDR4 32GB 2x16GB 3200 desktop",
+   "must": [
+    "ddr4",
+    "32gb",
+    "3200"
+   ],
+   "exclude": [
+    "64gb",
+    "1x32"
+   ],
+   "min": 30,
+   "max": 300,
+   "gb": 32
+  },
+  {
+   "id": "ddr4-32gb-3600",
+   "cat": "ram",
+   "name": "DDR4 32GB (2x16GB) 3600",
+   "query": "DDR4 32GB 2x16GB 3600 desktop",
+   "must": [
+    "ddr4",
+    "32gb",
+    "3600"
+   ],
+   "exclude": [
+    "64gb",
+    "1x32"
+   ],
+   "min": 30,
+   "max": 300,
+   "gb": 32
+  },
+  {
+   "id": "ddr4-64gb-3200",
+   "cat": "ram",
+   "name": "DDR4 64GB (2x32GB) 3200",
+   "query": "DDR4 64GB 2x32GB 3200 desktop",
+   "must": [
+    "ddr4",
+    "64gb"
+   ],
+   "exclude": [
+    "128gb",
+    "4x16"
+   ],
+   "min": 60,
+   "max": 500,
+   "gb": 64
+  },
+  {
+   "id": "ddr5-32gb-6000",
+   "cat": "ram",
+   "name": "DDR5 32GB (2x16GB) 6000",
+   "query": "DDR5 32GB 2x16GB 6000 desktop",
+   "must": [
+    "ddr5",
+    "32gb",
+    "6000"
+   ],
+   "exclude": [
+    "64gb",
+    "1x32"
+   ],
+   "min": 50,
+   "max": 500,
+   "gb": 32
+  },
+  {
+   "id": "ddr5-32gb-5600",
+   "cat": "ram",
+   "name": "DDR5 32GB (2x16GB) 5600",
+   "query": "DDR5 32GB 2x16GB 5600 desktop",
+   "must": [
+    "ddr5",
+    "32gb",
+    "5600"
+   ],
+   "exclude": [
+    "64gb",
+    "1x32"
+   ],
+   "min": 50,
+   "max": 500,
+   "gb": 32
+  },
+  {
+   "id": "ddr5-64gb-6000",
+   "cat": "ram",
+   "name": "DDR5 64GB (2x32GB) 6000",
+   "query": "DDR5 64GB 2x32GB 6000 desktop",
+   "must": [
+    "ddr5",
+    "64gb",
+    "6000"
+   ],
+   "exclude": [
+    "128gb",
+    "4x16"
+   ],
+   "min": 100,
+   "max": 900,
+   "gb": 64
+  },
+  {
+   "id": "ddr5-96gb-6400",
+   "cat": "ram",
+   "name": "DDR5 96GB (2x48GB) 6400",
+   "query": "DDR5 96GB 2x48GB desktop",
+   "must": [
+    "ddr5",
+    "96gb"
+   ],
+   "exclude": [
+    "192gb"
+   ],
+   "min": 150,
+   "max": 1300,
+   "gb": 96
+  },
+  {
+   "id": "samsung-990-pro-1tb",
+   "cat": "ssd",
+   "name": "Samsung 990 Pro 1TB",
+   "query": "Samsung 990 Pro 1TB",
+   "must": [
+    "990",
+    "pro",
+    "1tb"
+   ],
+   "exclude": [
+    "2tb",
+    "4tb",
+    "heatsink"
+   ],
+   "min": 45,
+   "max": 160,
+   "gb": 1000
+  },
+  {
+   "id": "samsung-990-pro-2tb",
+   "cat": "ssd",
+   "name": "Samsung 990 Pro 2TB",
+   "query": "Samsung 990 Pro 2TB",
+   "must": [
+    "990",
+    "pro",
+    "2tb"
+   ],
+   "exclude": [
+    "1tb",
+    "4tb",
+    "heatsink"
+   ],
+   "min": 80,
+   "max": 260,
+   "gb": 2000
+  },
+  {
+   "id": "samsung-980-pro-1tb",
+   "cat": "ssd",
+   "name": "Samsung 980 Pro 1TB",
+   "query": "Samsung 980 Pro 1TB",
+   "must": [
+    "980",
+    "pro",
+    "1tb"
+   ],
+   "exclude": [
+    "2tb",
+    "heatsink"
+   ],
+   "min": 35,
+   "max": 130,
+   "gb": 1000
+  },
+  {
+   "id": "wd-sn850x-2tb",
+   "cat": "ssd",
+   "name": "WD Black SN850X 2TB",
+   "query": "WD Black SN850X 2TB",
+   "must": [
+    "sn850x",
+    "2tb"
+   ],
+   "exclude": [
+    "1tb",
+    "4tb",
+    "heatsink"
+   ],
+   "min": 80,
+   "max": 250,
+   "gb": 2000
+  },
+  {
+   "id": "samsung-870-evo-1tb",
+   "cat": "ssd",
+   "name": "Samsung 870 EVO 1TB (SATA)",
+   "query": "Samsung 870 EVO 1TB",
+   "must": [
+    "870",
+    "evo",
+    "1tb"
+   ],
+   "exclude": [
+    "2tb",
+    "4tb",
+    "qvo"
+   ],
+   "min": 35,
+   "max": 120,
+   "gb": 1000
+  },
+  {
+   "id": "lg-27gp850",
+   "cat": "monitor",
+   "name": "LG 27GP850-B 27\" 1440p 165Hz",
+   "query": "LG 27GP850",
+   "must": [
+    "27gp850"
+   ],
+   "exclude": [],
+   "min": 130,
+   "max": 420
+  },
+  {
+   "id": "dell-s2721dgf",
+   "cat": "monitor",
+   "name": "Dell S2721DGF 27\" 1440p 165Hz",
+   "query": "Dell S2721DGF",
+   "must": [
+    "s2721dgf"
+   ],
+   "exclude": [],
+   "min": 120,
+   "max": 360
+  },
+  {
+   "id": "samsung-odyssey-g7-27",
+   "cat": "monitor",
+   "name": "Samsung Odyssey G7 27\"",
+   "query": "Samsung Odyssey G7 27",
+   "must": [
+    "odyssey",
+    "g7",
+    "27"
+   ],
+   "exclude": [
+    "32",
+    "g70b",
+    "g70d"
+   ],
+   "min": 180,
+   "max": 520
+  },
+  {
+   "id": "alienware-aw3423dwf",
+   "cat": "monitor",
+   "name": "Alienware AW3423DWF 34\" QD-OLED",
+   "query": "Alienware AW3423DWF",
+   "must": [
+    "aw3423dwf"
+   ],
+   "exclude": [],
+   "min": 400,
+   "max": 1000
+  },
+  {
+   "id": "asus-pg27aqdm",
+   "cat": "monitor",
+   "name": "ASUS ROG Swift PG27AQDM 27\" OLED",
+   "query": "ASUS PG27AQDM",
+   "must": [
+    "pg27aqdm"
+   ],
+   "exclude": [],
+   "min": 400,
+   "max": 1000
+  },
+  {
+   "id": "ps5-disc",
+   "cat": "console",
+   "name": "PlayStation 5 (Disc)",
+   "query": "PS5 console disc",
+   "must": [
+    "ps5"
+   ],
+   "exclude": [
+    "digital",
+    "pro",
+    "slim digital"
+   ],
+   "min": 230,
+   "max": 560
+  },
+  {
+   "id": "ps5-digital",
+   "cat": "console",
+   "name": "PlayStation 5 Digital Edition",
+   "query": "PS5 digital edition console",
+   "must": [
+    "ps5",
+    "digital"
+   ],
+   "exclude": [
+    "pro"
+   ],
+   "min": 180,
+   "max": 460
+  },
+  {
+   "id": "ps5-pro",
+   "cat": "console",
+   "name": "PlayStation 5 Pro",
+   "query": "PS5 Pro console",
+   "must": [
+    "ps5",
+    "pro"
+   ],
+   "exclude": [
+    "controller"
+   ],
+   "min": 420,
+   "max": 900
+  },
+  {
+   "id": "xbox-series-x",
+   "cat": "console",
+   "name": "Xbox Series X",
+   "query": "Xbox Series X console 1TB",
+   "must": [
+    "series x"
+   ],
+   "exclude": [
+    "series s"
+   ],
+   "min": 200,
+   "max": 520
+  },
+  {
+   "id": "xbox-series-s",
+   "cat": "console",
+   "name": "Xbox Series S",
+   "query": "Xbox Series S console",
+   "must": [
+    "series s"
+   ],
+   "exclude": [
+    "series x"
+   ],
+   "min": 120,
+   "max": 320
+  },
+  {
+   "id": "switch-oled",
+   "cat": "console",
+   "name": "Nintendo Switch OLED",
+   "query": "Nintendo Switch OLED console",
+   "must": [
+    "switch",
+    "oled"
+   ],
+   "exclude": [
+    "lite",
+    "switch 2"
+   ],
+   "min": 150,
+   "max": 370
+  },
+  {
+   "id": "switch-2",
+   "cat": "console",
+   "name": "Nintendo Switch 2",
+   "query": "Nintendo Switch 2 console",
+   "must": [
+    "switch 2"
+   ],
+   "exclude": [
+    "oled",
+    "lite"
+   ],
+   "min": 330,
+   "max": 650
+  },
+  {
+   "id": "steam-deck-oled-512",
+   "cat": "console",
+   "name": "Steam Deck OLED 512GB",
+   "query": "Steam Deck OLED 512GB",
+   "must": [
+    "steam deck",
+    "oled",
+    "512"
+   ],
+   "exclude": [
+    "1tb",
+    "lcd"
+   ],
+   "min": 320,
+   "max": 650
+  },
+  {
+   "id": "iphone-13-128",
+   "cat": "phone",
+   "name": "iPhone 13 128GB",
+   "query": "iPhone 13 128GB unlocked",
+   "must": [
+    "iphone 13",
+    "128",
+    "unlocked"
+   ],
+   "exclude": [
+    "pro",
+    "mini",
+    "max"
+   ],
+   "min": 140,
+   "max": 420
+  },
+  {
+   "id": "iphone-14-128",
+   "cat": "phone",
+   "name": "iPhone 14 128GB",
+   "query": "iPhone 14 128GB unlocked",
+   "must": [
+    "iphone 14",
+    "128",
+    "unlocked"
+   ],
+   "exclude": [
+    "pro",
+    "plus",
+    "max"
+   ],
+   "min": 190,
+   "max": 520
+  },
+  {
+   "id": "iphone-14-pro-128",
+   "cat": "phone",
+   "name": "iPhone 14 Pro 128GB",
+   "query": "iPhone 14 Pro 128GB unlocked",
+   "must": [
+    "iphone 14 pro",
+    "128",
+    "unlocked"
+   ],
+   "exclude": [
+    "max"
+   ],
+   "min": 280,
+   "max": 680
+  },
+  {
+   "id": "iphone-15-128",
+   "cat": "phone",
+   "name": "iPhone 15 128GB",
+   "query": "iPhone 15 128GB unlocked",
+   "must": [
+    "iphone 15",
+    "128",
+    "unlocked"
+   ],
+   "exclude": [
+    "pro",
+    "plus",
+    "max"
+   ],
+   "min": 290,
+   "max": 680
+  },
+  {
+   "id": "iphone-15-pro-128",
+   "cat": "phone",
+   "name": "iPhone 15 Pro 128GB",
+   "query": "iPhone 15 Pro 128GB unlocked",
+   "must": [
+    "iphone 15 pro",
+    "128",
+    "unlocked"
+   ],
+   "exclude": [
+    "max"
+   ],
+   "min": 380,
+   "max": 880
+  },
+  {
+   "id": "iphone-15-pro-max-256",
+   "cat": "phone",
+   "name": "iPhone 15 Pro Max 256GB",
+   "query": "iPhone 15 Pro Max 256GB unlocked",
+   "must": [
+    "iphone 15 pro max",
+    "256",
+    "unlocked"
+   ],
+   "exclude": [],
+   "min": 500,
+   "max": 1050
+  },
+  {
+   "id": "iphone-16-pro-128",
+   "cat": "phone",
+   "name": "iPhone 16 Pro 128GB",
+   "query": "iPhone 16 Pro 128GB unlocked",
+   "must": [
+    "iphone 16 pro",
+    "128",
+    "unlocked"
+   ],
+   "exclude": [
+    "max"
+   ],
+   "min": 520,
+   "max": 1050
+  }
+ ]
 }

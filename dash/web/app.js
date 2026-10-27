@@ -36,7 +36,7 @@ const INFO = {
 <p>Prices come from listings collected every 6 hours through the eBay Browse API and stored in the tracker's database. This screen shows the same numbers as the public site.</p>`],
   deals: ["Live deals", `<p>Listings priced at least 15% below that model's typical (median) price. To reduce scams, only sellers with 98%+ positive feedback and at least 20 ratings count, and anything priced suspiciously low is dropped.</p>
 <p>Tapping a deal opens eBay through the affiliate link.</p>`],
-  rows: ["Model prices", `<p>For each model: the <b>median</b> used price including shipping (the middle value, so a few extreme listings don't skew it), the 7-day change, and a 30-day trend line.</p>
+  rows: ["Model prices", `<p>Every tracked category (graphics cards, CPUs, RAM, SSDs, monitors, consoles, iPhones) gets its own panel. For each model: the <b>median</b> used price including shipping (the middle value, so a few extreme listings don't skew it), the 7-day change, and a 30-day trend line.</p>
 <p>Tap a row for the full price chart, 90-day high and low, and the cheapest trusted listings. <span class="signal">BUY</span> appears when today's typical price is the lowest in 90 days. You can get a push alert for that, too.</p>`],
   jobs: ["Jobs", `<p><b>Run price update</b> starts the price collection job immediately instead of waiting for its scheduled time.</p>
 <p><b>Run cloud backup</b> creates a compressed, encrypted image of the system and uploads it to cloud storage. It can take a while, depending on upload speed.</p>
@@ -199,15 +199,16 @@ async function loadStatus() {
 }
 function renderMarket(m) {
   const note = $("#marketNote");
-  if (!m || !m.ready) { note.textContent = (m && (m.note || m.error)) || "No data yet."; ["#gpu7", "#ram7"].forEach(s => $(s).textContent = "--"); $("#deals").innerHTML = ""; $("#gpuRows").innerHTML = ""; $("#ramRows").innerHTML = ""; return; }
+  if (!m || !m.ready) { note.textContent = (m && (m.note || m.error)) || "No data yet."; ["#gpu7", "#ram7"].forEach(s => $(s).textContent = "--"); $("#deals").innerHTML = ""; $("#catRows").innerHTML = ""; return; }
   note.textContent = (m.demo ? "DEMO DATA · " : "") + "updated " + esc(m.lastRun?.replace("T", " ").slice(0, 16) + " UTC");
   $("#siteLink").href = m.site;
   $("#gpu7").innerHTML = pct(m.gpu7); $("#ram7").innerHTML = pct(m.ram7);
   $("#gpu30").innerHTML = "30d " + pct(m.gpu30); $("#ram30").innerHTML = "30d " + pct(m.ram30);
   $("#deals").innerHTML = m.deals.length ? m.deals.map(d => `<a class="row" href="${esc(d.url)}" target="_blank" rel="noopener sponsored"><div class="main"><div class="name">${esc(d.model)}</div><div class="meta">${esc(d.title)}</div></div><div class="num">${money(d.total)}<div class="meta down">${d.under}% under</div></div></a>`).join("") : '<div class="note">No standout deals right now.</div>';
   const row = r => `<button class="row" data-model="${esc(r.id)}"><div class="main"><div class="name">${esc(r.name)}${r.signal ? ' <span class="signal">BUY</span>' : ""}</div><div class="meta">${r.perGb ? "$" + r.perGb.toFixed(2) + "/GB · " : ""}30d ${r.chg30 == null ? "--" : r.chg30.toFixed(1) + "%"}</div></div>${miniSpark(r.spark)}<div class="num">${money(r.median)}<div class="meta">${pct(r.chg7)}</div></div></button>`;
-  $("#gpuRows").innerHTML = m.rows.filter(r => r.cat === "gpu").map(row).join("");
-  $("#ramRows").innerHTML = m.rows.filter(r => r.cat === "ram").map(row).join("");
+  $("#catRows").innerHTML = (m.cats || []).map(c => `<div class="panel" data-panel="market"><div class="ph"><span>${esc(c.label.toUpperCase())}</span><span class="mini">7d ${pct(c.chg7)}</span><button class="info" data-info-btn="rows" aria-label="How this works">i</button></div>
+    <div class="list">${m.rows.filter(r => r.cat === c.id).map(row).join("")}</div></div>`).join("");
+  if (settings) $$("#catRows [data-panel]").forEach(p => p.classList.toggle("hidden", settings.panels.market === false));
 }
 function renderControl(s) {
   const ts = s.tailscale || {};

@@ -72,7 +72,7 @@ def refresh(con, reports: list[dict], force: bool = False) -> dict:
     else:
         facts = [_facts(r) for r in reports if r["current"]]
         slim = [{k: f[k] for k in ("model", "typical_used_usd", "change_7d_pct", "change_30d_pct")} for f in facts]
-        text = _ask("Write a 3-4 sentence weekly used GPU and RAM market report for a price-tracker homepage. "
+        text = _ask("Write a 3-4 sentence weekly used tech market report (graphics cards, CPUs, RAM, SSDs, monitors, consoles, iPhones) for a price-tracker homepage. "
                     "Name the biggest movers. " + RULES + f"\n\nData:\n{json.dumps(slim)}")
         if text:
             con.execute("INSERT OR REPLACE INTO summaries VALUES (?,?,?)", ("_market", today, text))

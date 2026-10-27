@@ -28,8 +28,13 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", ROOT / "data"))
 DB_PATH = DATA_DIR / "prices.db"
 SITE_DIR = Path(os.environ.get("SITE_DIR", ROOT / "docs"))  # GitHub Pages serves /docs
 
-SITE_NAME = os.environ.get("SITE_NAME", "Used GPU & RAM Prices")
+SITE_NAME = os.environ.get("SITE_NAME", "Used Tech Prices")
 SITE_URL = os.environ.get("SITE_URL", "https://micahbyrnes00-svg.github.io/gpu-prices").rstrip("/")
+
+AMAZON_TAG = os.environ.get("AMAZON_TAG", "")            # Amazon Associates tracking id, e.g. yourtag-20
+ADSENSE_CLIENT = os.environ.get("ADSENSE_CLIENT", "")    # e.g. ca-pub-1234567890123456 (only after AdSense approval)
+DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK", "")  # Discord channel webhook URL for deal posts
+CONTACT_EMAIL = os.environ.get("CONTACT_EMAIL", "")
 
 # Command used for AI summaries; prompt is passed on stdin. Empty = template text only.
 AI_CMD = os.environ.get("AI_CMD", "claude -p")

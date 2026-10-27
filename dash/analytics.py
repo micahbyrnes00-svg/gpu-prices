@@ -38,7 +38,7 @@ def ingest():
             h = {k.lower(): v for k, v in (req.get("headers") or {}).items()}
             ua = (h.get("user-agent") or [""])[0]
             bot = bool(BOTS.search(ua)) or not ua
-            ip = (h.get("x-forwarded-for") or [req.get("client_ip") or req.get("remote_ip", "")])[0].split(",")[0].strip()
+            ip = (h.get("cf-connecting-ip") or h.get("x-forwarded-for") or [req.get("client_ip") or req.get("remote_ip", "")])[0].split(",")[0].strip()
             uri = req.get("uri", "/")
             path = urlparse(uri).path
             ts = e.get("ts", time.time())
