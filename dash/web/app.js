@@ -679,6 +679,10 @@ async function loadIntegrations() {
     ${i.link ? `<a class="btn" href="${esc(i.link)}" target="_blank" rel="noopener" aria-label="Open ${esc(i.name)}">↗</a>` : ""}
     <span class="badge ${st[i.state][1]}">${st[i.state][0]}</span></div>`).join("");
   const eb = d.items.find(i => i.id === "ebay");
+  const gl = d.golive, keys = eb && eb.state !== "off";
+  $("#goLive").style.display = keys && !(gl && gl.done) ? "" : "none";
+  $("#goLive").textContent = gl && !gl.done ? "COLLECTING PRICES… (TAP TO RE-RUN)" : "GO LIVE WITH REAL PRICES";
+  $("#ebNote").textContent = gl && gl.done ? "Live: prices update every 6 hours." : gl ? "First run started " + ago(gl.started) + ". You'll get a notification when the site is live." : keys ? "Keys saved. Tap Go live to collect real prices and switch the site over." : "Paste your Production keys from developer.ebay.com → Application Keys.";
   if (eb) { $("#ebState").textContent = eb.state === "off" ? "NOT SET" : "SAVED"; $("#ebState").className = "badge " + (eb.state === "off" ? "" : "on"); }
   const c = d.discordCounts;
   $("#dcCount").textContent = c && c.members != null ? `${c.members} MEMBERS` : "--";
@@ -719,6 +723,7 @@ $("#ebSave").addEventListener("click", async () => {
   const r = await post("api/integrations/ebay", { id, secret }); $("#ebSave").textContent = "SAVE";
   toast((r.ok ? "✓ " : "✗ ") + r.message); if (r.ok) { $("#ebId").value = ""; $("#ebSec").value = ""; } loadIntegrations();
 });
+$("#goLive").addEventListener("click", e => runAction("go_live", "", e.target).then(() => setTimeout(loadIntegrations, 1500)));
 $("#nlSave").addEventListener("click", async () => { const r = await post("api/integrations/newsletter", { url: $("#nlUrl").value.trim() }); toast((r.ok ? "✓ " : "✗ ") + r.message); $("#nlUrl").value = ""; loadIntegrations(); });
 
 /* ---------------- Ask Orbit ---------------- */

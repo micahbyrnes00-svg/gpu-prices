@@ -142,7 +142,7 @@ class Watcher:
     def _loop(self):
         time.sleep(15)
         while True:
-            for job in (self._system, self._units, self._jobs, self._net, self._scan, self._smart,
+            for job in (self._system, self._units, self._jobs, self._auto_prices, self._net, self._scan, self._smart,
                         self._speed, self._traffic, self._deals, self._sites, self._security, self._buy, self._amazon, self._discord, self._digest, self._daily):
                 try:
                     job()
@@ -213,8 +213,40 @@ class Watcher:
                     fire("backup", "Cloud backup " + ("finished" if ok else "FAILED"),
                          "Encrypted system backup uploaded to Google Drive." if ok else "Check logs in Orbit → Control.",
                          url="/#control", key=key, cooldown=60)
+                elif ok:
+                    self._after_prices()
                 elif not ok:
                     fire("prices", "Price update failed", "The tracker job failed. Open its logs in Orbit.", url="/#control", key=key, cooldown=60)
+
+    def _after_prices(self):
+        """First successful live run after Go live: point the web server at the real site and announce it."""
+        g = store.get("golive")
+        if not g or g.get("done"):
+            return
+        from pathlib import Path
+        site = Path("/home/pi/site/index.html")
+        if not site.exists() or 'name="robots" content="noindex"' in site.read_text(errors="ignore")[:4000]:
+            return
+        repo = Path(__file__).resolve().parent.parent
+        subprocess.run(["bash", str(repo / "p.sh"), "web", "127.0.0.1"], cwd=str(repo), capture_output=True, timeout=120)
+        g["done"] = True
+        store.put("golive", g)
+        fire("prices", "Your site is live with real prices", "orbitbymicah.com now shows live eBay prices. Updates run every 6 hours.",
+             url="/#market", key="golive", cooldown=0, force=True)
+
+    def _auto_prices(self):
+        """Run the price update every 6 hours when the systemd timer isn't enabled (no sudo needed to turn it on)."""
+        if not store.get("auto_prices"):
+            return
+        self._after_prices()
+        if subprocess.run(["systemctl", "is-active", "--quiet", "gpu-prices.timer"]).returncode == 0:
+            return
+        last = store.get("auto_prices_last", 0)
+        if time.time() - last < 6 * 3600:
+            return
+        store.put("auto_prices_last", time.time())
+        if last:  # the first run was started by Go live itself
+            subprocess.run(["sudo", "-n", "/usr/bin/systemctl", "start", "--no-block", "gpu-prices.service"], capture_output=True, timeout=20)
 
     def _net(self):
         if time.time() < self.next["net"]:

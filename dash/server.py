@@ -381,6 +381,14 @@ def act(body):
         code, out = sh(["docker", "restart", target], 60)
     elif a == "run_prices":
         code, out = sh(SUDO_SYSTEMCTL + ["start", "--no-block", "gpu-prices.service"], 10)
+    elif a == "go_live":
+        if not (env_get("EBAY_CLIENT_ID") and env_get("EBAY_CLIENT_SECRET")):
+            return 400, "Save your eBay API keys first"
+        code, out = sh(SUDO_SYSTEMCTL + ["start", "--no-block", "gpu-prices.service"], 10)
+        if code == 0:
+            store.put("golive", {"started": time.time(), "done": False})
+            store.put("auto_prices", True)
+            out = "Collecting live prices for every model. This takes 15-30 minutes, and you'll get a notification when the site is live."
     elif a == "run_backup":
         code, out = sh(SUDO_SYSTEMCTL + ["start", "--no-block", "pi-cloud-backup.service"], 10)
     elif a == "funnel_on":
@@ -610,7 +618,9 @@ class Handler(BaseHTTPRequestHandler):
             host = f"{dns}:8443" if dns else self._host()
             return self._json(200, {"token": widget_token(), "url": f"https://{host}/api/widget", "script": widget_script(host)})
         if path == "/api/integrations":
-            return self._json(200, integrations.status(analytics.amazon_status(), bool(store.get("widget_token"))))
+            st = integrations.status(analytics.amazon_status(), bool(store.get("widget_token")))
+            st["golive"] = store.get("golive")
+            return self._json(200, st)
         if path == "/api/me":
             return self._json(200, {"login": self.headers.get("Tailscale-User-Login", "local"),
                                     "name": self.headers.get("Tailscale-User-Name", "")})
