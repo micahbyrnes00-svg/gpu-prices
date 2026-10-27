@@ -41,6 +41,7 @@ RULES = {
     "ssh":       ("SSH login", "info", True, {}, "Someone signed in to the Pi over SSH."),
     "sshfail":   ("SSH attack", "warning", True, {"fails": 5}, "Failed SSH logins in 10 minutes reach the limit."),
     "probe":     ("Site probing", "warning", True, {"hits": 20}, "One visitor triggers this many error pages in 10 minutes (bots scanning for weaknesses)."),
+    "digest":    ("Weekly AI digest", "info", False, {"hour": 9}, "Sunday morning: Claude on the Pi summarizes the week's health, traffic, money and prices."),
     "daily":     ("Daily summary", "info", False, {"hour": 8}, "One morning summary: health, visitors, clicks, deals."),
 }
 SCHEDULE = {"net_scan_min": 10, "speedtest_hours": 6, "smart_min": 30, "site_min": 5, "security_hours": 6}
@@ -141,7 +142,7 @@ class Watcher:
         time.sleep(15)
         while True:
             for job in (self._system, self._units, self._jobs, self._net, self._scan, self._smart,
-                        self._speed, self._traffic, self._deals, self._sites, self._security, self._buy, self._amazon, self._daily):
+                        self._speed, self._traffic, self._deals, self._sites, self._security, self._buy, self._amazon, self._digest, self._daily):
                 try:
                     job()
                 except Exception:  # noqa: BLE001
@@ -370,6 +371,25 @@ class Watcher:
                 fire("amazon", f"Amazon: {a['daysLeft']} days left", f"{a['sales']} of 3 qualifying sales so far. Without 3 sales by the deadline, Amazon closes the Associates account.",
                      url="/#market", key=f"amz-{mark}", cooldown=0)
                 break
+
+    def _digest(self):
+        r = config()["rules"]["digest"]
+        now = datetime.now()
+        week = now.strftime("%G-%V")
+        if not r["enabled"] or now.weekday() != 6 or now.hour != int(r["params"]["hour"]) or self.state.get("digest") == week:
+            return
+        self.state["digest"] = week
+
+        def work():
+            import ask
+            try:
+                text = ask.answer_now("Write my weekly digest: Pi health, internet, site traffic, clicks and money, notable price moves, "
+                                      "and anything I should do this week. Under 90 words, plain sentences.",
+                                      ask.snapshot(self.status_fn, self.sampler))
+            except Exception as e:  # noqa: BLE001
+                text = f"Digest unavailable: {e}"
+            fire("digest", "Your weekly Orbit digest", text[:900], url="/#alerts", key="digest-" + week, cooldown=0)
+        threading.Thread(target=work, daemon=True).start()
 
     def _daily(self):
         r = config()["rules"]["daily"]

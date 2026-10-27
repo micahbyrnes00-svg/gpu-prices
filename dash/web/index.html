@@ -25,7 +25,7 @@
       <div class="sub" id="host">by Micah</div>
     </div>
   </div>
-  <div class="topr"><div class="link-state" id="linkState"><span class="dot"></span><span id="linkText">LINK</span></div><button class="info big" data-info-btn="overview" aria-label="How it all fits together">i</button></div>
+  <div class="topr"><div class="link-state" id="linkState"><span class="dot"></span><span id="linkText">LINK</span></div><button class="askbtn" id="askBtn" aria-label="Ask Orbit">✦</button><button class="info big" data-info-btn="overview" aria-label="How it all fits together">i</button></div>
 </header>
 
 <main id="views">
@@ -157,6 +157,10 @@
       <div class="sub2">RECENT COMMISSIONS</div><div class="list" id="earnRecent"></div>
       <label class="btn wide filebtn">IMPORT EARNINGS REPORT (EBAY OR AMAZON)<input type="file" id="tdrFile" accept=".csv,.tsv,text/csv,text/tab-separated-values"></label>
     </div>
+    <div class="panel" data-panel="money" data-info="funnel">
+      <div class="ph"><span>REVENUE FUNNEL</span><span class="seg"><button class="btn on" data-fdays="7">7D</button><button class="btn" data-fdays="30">30D</button></span></div>
+      <div id="funnel"><div class="note">Loading…</div></div>
+    </div>
     <div class="panel" data-panel="market" data-info="deals">
       <div class="ph"><span>LIVE DEALS</span><span class="mini">≥15% under typical</span></div>
       <div class="list" id="deals"></div>
@@ -272,6 +276,8 @@
       <div class="addrow"><input id="dcUrl" type="password" autocomplete="off" placeholder="Paste Discord webhook URL" style="flex:1;width:auto" aria-label="Discord webhook URL"><button class="btn go" id="dcSave">SAVE</button></div>
       <div class="row"><div class="main"><div class="name">Amazon Associates</div><div class="meta" id="amzNote">--</div></div></div>
       <div class="row"><div class="main"><div class="name">Site address</div><div class="meta" id="siteNote">--</div></div></div>
+      <div class="row"><div class="main"><div class="name">iPhone widget</div><div class="meta">Scriptable · works over Tailscale</div></div><button class="info" data-info-btn="widget" aria-label="How to set up the widget">i</button></div>
+      <div class="actions"><button class="act" id="wCopy"><span class="ai">⧉</span>Copy widget script</button><button class="act" id="wNew"><span class="ai">⟲</span>New widget key</button></div>
     </div>
     <div class="panel" data-info="faceid">
       <div class="ph"><span>FACE ID</span><span class="badge" id="faceState">--</span></div>

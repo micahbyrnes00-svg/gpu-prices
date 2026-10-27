@@ -169,3 +169,58 @@ def import_tdr(text: str):
         new_amt += amt
     store.put("earn_import", now)
     return new_rows, round(new_amt, 2), source
+
+
+def _models():
+    try:
+        return json.loads((Path(__file__).resolve().parent.parent / "config" / "models.json").read_text())["models"]
+    except (OSError, ValueError):
+        return []
+
+
+def _match_model(title, models):
+    """Map a commission's item title to a tracked model (same 'must words' rule the tracker uses)."""
+    t = " ".join((title or "").lower().split())
+    c = t.replace(" ", "")
+    best, score = None, 0
+    for m in models:
+        if all(w.lower() in t or w.lower().replace(" ", "") in c for w in m.get("must", [])):
+            s = len("".join(m.get("must", [])))
+            if s > score:
+                best, score = m, s
+    return best
+
+
+def funnel(days=7):
+    """Visitors -> clicks (eBay / Amazon) -> commissions, plus which models earn."""
+    since = time.time() - days * 86400
+    one = lambda sql, a=(): (store.q(sql, a) or [{}])[0]  # noqa: E731
+    v = one("SELECT COUNT(DISTINCT visitor) u, COUNT(*) n FROM hits WHERE kind='view' AND ts>?", (since,))
+    ce = one("SELECT COUNT(*) n FROM hits WHERE kind='click' AND ts>? AND model NOT LIKE 'amz:%' AND model!='discord'", (since,))
+    ca = one("SELECT COUNT(*) n FROM hits WHERE kind='click' AND ts>? AND model LIKE 'amz:%'", (since,))
+    se = one("SELECT COUNT(*) n, COALESCE(SUM(amount),0) t FROM earnings WHERE ts>? AND COALESCE(source,'ebay')='ebay'", (since,))
+    sa = one("SELECT COUNT(*) n, COALESCE(SUM(amount),0) t FROM earnings WHERE ts>? AND source='amazon'", (since,))
+    models = _models()
+    names = {m["id"]: m["name"] for m in models}
+    per = {}
+    for r in store.q("SELECT model, COUNT(*) n FROM hits WHERE kind='click' AND ts>? GROUP BY model", (since,)):
+        mid = (r["model"] or "").removeprefix("amz:")
+        if mid in names:
+            p = per.setdefault(mid, {"id": mid, "name": names[mid], "ebayClicks": 0, "amzClicks": 0, "sales": 0, "earned": 0.0})
+            p["amzClicks" if r["model"].startswith("amz:") else "ebayClicks"] += r["n"]
+    for e in store.q("SELECT item, amount FROM earnings WHERE ts>?", (since,)):
+        m = _match_model(e["item"], models)
+        key = m["id"] if m else "_other"
+        p = per.setdefault(key, {"id": key, "name": m["name"] if m else "Other items", "ebayClicks": 0, "amzClicks": 0, "sales": 0, "earned": 0.0})
+        p["sales"] += 1
+        p["earned"] = round(p["earned"] + (e["amount"] or 0), 2)
+    rows = sorted(per.values(), key=lambda p: (-p["earned"], -(p["ebayClicks"] + p["amzClicks"])))[:15]
+    visitors = v.get("u") or 0
+    clicks = (ce.get("n") or 0) + (ca.get("n") or 0)
+    return {"days": days, "visitors": visitors, "views": v.get("n") or 0,
+            "ebayClicks": ce.get("n") or 0, "amzClicks": ca.get("n") or 0,
+            "ebaySales": se.get("n") or 0, "amzSales": sa.get("n") or 0,
+            "ebayEarned": round(se.get("t") or 0, 2), "amzEarned": round(sa.get("t") or 0, 2),
+            "clickRate": round(clicks / visitors * 100, 1) if visitors else None,
+            "perVisitor": round(((se.get("t") or 0) + (sa.get("t") or 0)) / visitors, 3) if visitors else None,
+            "models": rows}

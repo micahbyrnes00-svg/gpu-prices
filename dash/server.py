@@ -430,6 +430,7 @@ def save_settings(new):
 
 # ---------------------------------------------------------------- http
 import analytics  # noqa: E402
+import ask  # noqa: E402
 import disks  # noqa: E402
 import monitor  # noqa: E402
 import netradar  # noqa: E402
@@ -491,6 +492,36 @@ def discord_test(url):
     req = urllib.request.Request(url, json.dumps({"content": "Deal alerts connected. New deals will post here after each price update."}).encode(),
                                  {"Content-Type": "application/json", "User-Agent": "UsedTechPrices-DealBot/1"})
     urllib.request.urlopen(req, timeout=20).read()
+
+
+def widget_token(new=False):
+    import secrets
+    t = store.get("widget_token")
+    if new or not t:
+        t = secrets.token_urlsafe(24)
+        store.put("widget_token", t)
+    return t
+
+
+def widget_data():
+    live = SAMPLER.snapshot()
+    n = netradar.summary()
+    mo = analytics.summary()
+    root = next((d for d in live.get("disks", []) if d.get("mount") == "/"), {})
+    return {"ts": time.time(), "cpu": round(live.get("cpu", 0)), "temp": live.get("temp"),
+            "power": live.get("throttled") == "0x0", "mem": round((1 - live["mem"]["avail"] / live["mem"]["total"]) * 100),
+            "disk": round((1 - root["free"] / root["total"]) * 100) if root.get("total") else None,
+            "online": n["online"], "latency": n["latency"],
+            "visitors": mo["today"].get("u") or 0, "clicks": mo["clicksToday"], "clicks7": mo["clicks7"],
+            "earned": mo["earnings"]["total"], "earned30": mo["earnings"]["last30"],
+            "alerts": len(store.q("SELECT id FROM alerts WHERE ts>? AND level!='info'", (time.time() - 86400,)))}
+
+
+WIDGET_JS = (HERE / "widget.js")
+
+
+def widget_script(host):
+    return WIDGET_JS.read_text().replace("__URL__", f"https://{host}/api/widget?token={widget_token()}")
 
 
 def bg(fn):
@@ -559,6 +590,21 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/auth/options":
             return self._json(200, {"challenge": webauthn.new_challenge(), "rpId": self._host().split(":")[0],
                                     "credentials": webauthn.credential_ids()})
+        if path == "/api/widget":
+            import hmac
+            if not hmac.compare_digest((qs.get("token") or [""])[0], widget_token()):
+                return self._json(403, {"error": "bad widget key"})
+            return self._json(200, widget_data())
+        if path == "/api/funnel":
+            days = 30 if (qs.get("days") or ["7"])[0] == "30" else 7
+            return self._json(200, analytics.funnel(days))
+        if path == "/api/ask":
+            j = ask.job((qs.get("id") or [""])[0])
+            return self._json(200 if j else 404, j or {"status": "error", "error": "Unknown or expired question"})
+        if path == "/api/widget/info":
+            dns = (tailscale() or {}).get("dns")
+            host = f"{dns}:8443" if dns else self._host()
+            return self._json(200, {"token": widget_token(), "url": f"https://{host}/api/widget", "script": widget_script(host)})
         if path == "/api/integrations":
             return self._json(200, {"discord": bool(env_get("DISCORD_WEBHOOK")), "amazonTag": env_get("AMAZON_TAG"),
                                     "siteUrl": env_get("SITE_URL")})
@@ -628,6 +674,21 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/network/speedtest":
             bg(netradar.speedtest)
             return self._json(200, {"ok": True, "message": "Speed test running (about 30 s)…"})
+        if path == "/api/ask":
+            src = body.get("source") or ""
+            logs_txt = None
+            if src.startswith("unit:") or src.startswith("container:"):
+                k, v = src.split(":", 1)
+                code, out = logs({k: [v], "n": ["150"]})
+                logs_txt = out if code == 200 else None
+            try:
+                jid = ask.start(str(body.get("question", "")), ask.snapshot(status, SAMPLER, logs_txt))
+            except ValueError as e:
+                return self._json(400, {"ok": False, "message": str(e)})
+            return self._json(200, {"ok": True, "id": jid})
+        if path == "/api/widget/token":
+            widget_token(new=True)
+            return self._json(200, {"ok": True, "message": "New widget key made. Update the script on your iPhone."})
         if path == "/api/integrations/discord":
             url = str(body.get("url", "")).strip()
             if not url:

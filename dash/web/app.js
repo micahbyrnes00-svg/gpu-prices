@@ -89,6 +89,12 @@ const INFO = {
   integrations: ["Integrations", `<p><b>Discord deal bot:</b> a <b>webhook</b> is a private address that lets a program post into one Discord channel without a bot account. After each price update, the Pi posts new deals there with your affiliate links. Paste the webhook URL here and Orbit checks it by sending a test message.</p>
 <p>The URL is stored only on the Pi, in a settings file only the Pi's user can read. Anyone with the URL could post to the channel, so keep it private. Delete the webhook in Discord to revoke it.</p>
 <p><b>Amazon Associates</b> and the <b>site address</b> come from the same settings file and are used when the site is rebuilt.</p>`],
+  funnel: ["Revenue funnel", `<p>How visitors turn into money. <b>Visitors</b> are unique people on the price site. <b>Clicks</b> are taps on an eBay "View" button or an Amazon button. <b>Sales</b> and <b>earned</b> come from the eBay and Amazon earnings reports you import.</p>
+<p>The <b>click rate</b> is clicks divided by visitors. <b>Per visitor</b> is earnings divided by visitors, the number to grow.</p>
+<p>The table matches each commission to a tracked model by its product name, so you can see which models actually earn and add similar ones. Purchases of other items show as "Other items". With an affiliate link, buying anything on eBay or Amazon after the click can pay you.</p>`],
+  widget: ["iPhone widget", `<p>Shows Pi health, internet status, today's visitors, clicks and earnings on your Home Screen.</p>
+<p><b>Setup:</b> 1) Install the free <b>Scriptable</b> app from the App Store. 2) Tap <b>Copy widget script</b> here. 3) In Scriptable, tap <b>+</b>, paste, and name it "Orbit". 4) Long-press the Home Screen → <b>+</b> → Scriptable → pick small or medium → <b>Add Widget</b>. 5) Long-press the new widget → <b>Edit Widget</b> → Script: <b>Orbit</b>.</p>
+<p><b>Security:</b> the widget calls a read-only address that only answers over your Tailscale network, and only with the widget key built into the script. <b>New widget key</b> cancels the old one, which helps if the script is ever shared by mistake. Tapping the widget opens Orbit. It refreshes about every 15 minutes (iOS decides the exact timing).</p>`],
   identity: ["Identity & security", `<p>Every request reaches the Pi through Tailscale, which attaches the verified identity of the signed-in user. Orbit only accepts the owner's account. Requests that change anything also need a special header, which blocks cross-site request forgery from other web pages.</p>
 <p>The app isn't exposed to the public internet or the local network. Only the owner's devices on the tailnet can reach it.</p>`],
 };
@@ -322,7 +328,7 @@ let cur = "system";
 function onView(v) {
   cur = v;
   if (v === "network") { loadNetwork(); loadSites(); }
-  if (v === "market") { loadStatus(); loadMoney(); }
+  if (v === "market") { loadStatus(); loadMoney(); loadFunnel(); }
   if (v === "alerts") { loadAlerts(); $("#alertDot").classList.remove("on"); try { localStorage.setItem("seenAlert", String(Date.now() / 1000)); } catch { } }
   if (v === "control") { loadStatus(); fillLogSources(); loadSecurity(); }
   if (v === "settings") { loadStatus(); loadAlerts(); loadIntegrations(); }
@@ -668,6 +674,79 @@ $("#dcSave").addEventListener("click", async () => {
   toast((r.ok ? "✓ " : "✗ ") + r.message); if (r.ok) $("#dcUrl").value = ""; loadIntegrations();
 });
 
+/* ---------------- Ask Orbit ---------------- */
+const askHist = [];
+const ASK_CHIPS = ["How is the Pi doing?", "Anything I should fix?", "Why did my last alert fire?", "How is the site making money?", "Explain these logs"];
+function renderAsk() {
+  const chat = askHist.map(m => `<div class="msg ${m.who}${m.wait ? " wait" : ""}">${esc(m.text)}</div>`).join("");
+  const units = [...new Set([...(status?.services || []).map(u => u.unit), "gpu-prices.service", "pi-cloud-backup.service"])];
+  const prev = $("#askSrc")?.value || "";
+  $("#sheetBody").innerHTML = `${askHist.length ? "" : `<p class="mini" style="margin-top:0">Claude on your Pi reads a live snapshot (stats, services, internet, drives, traffic, money, recent alerts) and explains it. It can't run commands or change anything.</p>`}
+    <div class="chat" id="askChat">${chat}</div>
+    <div class="chips">${ASK_CHIPS.map(c => `<button data-askchip="${esc(c)}">${esc(c)}</button>`).join("")}</div>
+    <div class="askin">
+      <select id="askSrc" aria-label="Include logs"><option value="">No logs</option>${units.map(u => `<option value="unit:${esc(u)}">Include logs: ${esc(u)}</option>`).join("")}${(status?.containers || []).map(c => `<option value="container:${esc(c.name)}">Include logs: 🐳 ${esc(c.name)}</option>`).join("")}</select>
+      <textarea id="askQ" rows="2" placeholder="Ask about your Pi, network, site or money…"></textarea>
+      <button class="btn go wide" id="askGo" style="margin-top:0">ASK</button>
+    </div>`;
+  if (prev) $("#askSrc").value = prev;
+  const ch = $("#askChat"); ch.lastElementChild?.scrollIntoView({ block: "end" });
+}
+function openAsk() { $("#sheetTitle").textContent = "Ask Orbit"; renderAsk(); $("#sheet").classList.add("open"); }
+async function sendAsk(q) {
+  q = (q || "").trim(); if (!q || askHist.some(m => m.wait)) return;
+  const source = $("#askSrc")?.value || "";
+  askHist.push({ who: "q", text: q }, { who: "a", text: "Thinking… (up to a minute)", wait: true }); renderAsk();
+  const done = (text) => { askHist.pop(); askHist.push({ who: "a", text }); if ($("#sheetTitle").textContent === "Ask Orbit") renderAsk(); };
+  let r; try { r = await post("api/ask", { question: q, source }); } catch { return done("No response from the Pi."); }
+  if (!r.ok) return done(r.message || "Couldn't ask.");
+  for (let i = 0; i < 55; i++) {
+    await new Promise(res => setTimeout(res, 2000));
+    let j; try { j = await api("api/ask?id=" + r.id); } catch { continue; }
+    if (j.status === "done") return done(j.answer);
+    if (j.status === "error") return done("⚠ " + j.error);
+  }
+  done("⚠ Timed out waiting for an answer.");
+}
+$("#askBtn").addEventListener("click", openAsk);
+document.addEventListener("click", e => {
+  if (e.target.id === "askGo") sendAsk($("#askQ").value);
+  const c = e.target.closest("[data-askchip]"); if (c) sendAsk(c.dataset.askchip);
+});
+document.addEventListener("keydown", e => { if (e.target.id === "askQ" && e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendAsk(e.target.value); } });
+
+/* ---------------- revenue funnel ---------------- */
+let fDays = 7;
+async function loadFunnel() {
+  let f; try { f = await api("api/funnel?days=" + fDays); } catch { return; }
+  const clicks = f.ebayClicks + f.amzClicks, sales = f.ebaySales + f.amzSales, earned = f.ebayEarned + f.amzEarned;
+  const max = Math.max(f.visitors, 1);
+  const st = (label, val, n, sub) => `<div class="st"><i style="width:${Math.max(4, Math.min(100, n / max * 100))}%"></i><span>${label}</span><b>${val}${sub ? ` <small class="mini">${sub}</small>` : ""}</b></div>`;
+  $("#funnel").innerHTML = `<div class="fun">
+      ${st("VISITORS", f.visitors, f.visitors, f.views + " views")}
+      ${st("CLICKS", clicks, clicks, `eBay ${f.ebayClicks} · Amazon ${f.amzClicks}${f.clickRate != null ? " · " + f.clickRate + "%" : ""}`)}
+      ${st("SALES", sales, sales, `eBay ${f.ebaySales} · Amazon ${f.amzSales}`)}
+      ${st("EARNED", "$" + earned.toFixed(2), sales, f.perVisitor != null ? "$" + f.perVisitor.toFixed(3) + "/visitor" : "")}
+    </div>
+    ${f.models.length ? `<table class="mtab"><tr><th>MODEL</th><th>EBAY</th><th>AMZ</th><th>SALES</th><th>EARNED</th></tr>
+      ${f.models.map(m => `<tr><td>${esc(m.name)}</td><td>${m.ebayClicks}</td><td>${m.amzClicks}</td><td>${m.sales}</td><td class="${m.earned ? "down" : ""}">$${m.earned.toFixed(2)}</td></tr>`).join("")}</table>`
+      : `<div class="meta">Clicks and sales per model appear here once visitors start clicking.</div>`}`;
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-fdays]"); if (!b) return;
+  fDays = +b.dataset.fdays; $$("[data-fdays]").forEach(x => x.classList.toggle("on", x === b)); loadFunnel();
+});
+
+/* ---------------- iPhone widget ---------------- */
+$("#wCopy").addEventListener("click", async () => {
+  try { const w = await api("api/widget/info"); await navigator.clipboard.writeText(w.script); toast("✓ Widget script copied. Paste it into a new Scriptable script."); }
+  catch { toast("✗ Couldn't copy. Try again from the Home Screen app."); }
+});
+$("#wNew").addEventListener("click", async () => {
+  if (!confirm("Make a new widget key? The current widget stops working until you paste the new script.")) return;
+  const r = await post("api/widget/token", {}); toast(r.message || "Done");
+});
+
 /* ---------------- boot ---------------- */
 (async () => {
   addInfoButtons();
@@ -677,7 +756,7 @@ $("#dcSave").addEventListener("click", async () => {
   await seedHistory(); connect(); loadStatus(); loadAlerts(); loadDisks();
   const start = location.hash.slice(1);
   if (start && $(`.tabs [data-view="${start}"]`)) $(`.tabs [data-view="${start}"]`).click();
-  setInterval(() => { loadStatus(); if (cur === "network") { loadNetwork(); loadSites(); } if (cur === "control") loadSecurity(); if (cur === "market") loadMoney(); if (cur === "alerts") loadAlerts(); }, 30000);
+  setInterval(() => { loadStatus(); if (cur === "network") { loadNetwork(); loadSites(); } if (cur === "control") loadSecurity(); if (cur === "market") { loadMoney(); loadFunnel(); } if (cur === "alerts") loadAlerts(); }, 30000);
   setInterval(loadDisks, 300000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { connect(); onView(cur); } });
   navigator.serviceWorker?.addEventListener("message", e => { if (e.data?.type === "nav") { const v = (e.data.url.split("#")[1] || "alerts"); $(`.tabs [data-view="${v}"]`)?.click(); } });

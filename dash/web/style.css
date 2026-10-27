@@ -230,3 +230,28 @@ button.row{width:100%;background:none;border:0;color:inherit;font:inherit;text-a
 .amz .pips i.on{background:#ff9900;box-shadow:0 0 8px rgba(255,153,0,.6)}
 .src{font:600 9px var(--mono);letter-spacing:.08em;padding:2px 5px;border-radius:5px;margin-right:6px;border:1px solid var(--line);color:var(--mute)}
 .src.amazon{color:#ff9900;border-color:rgba(255,153,0,.4)}
+
+.askbtn{width:30px;height:30px;flex:none;border-radius:50%;border:1.5px solid var(--a);background:color-mix(in srgb,var(--a) 12%,transparent);
+  color:var(--a);font:700 14px/1 system-ui;cursor:pointer;box-shadow:0 0 12px var(--glow);padding:0}
+.seg{display:flex;gap:4px}.seg .btn{padding:5px 8px}
+.fun{display:grid;gap:6px;margin-bottom:10px}
+.fun .st{position:relative;border-radius:10px;overflow:hidden;background:rgba(120,160,220,.06);border:1px solid var(--line);padding:8px 10px;display:flex;justify-content:space-between;align-items:baseline}
+.fun .st i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,color-mix(in srgb,var(--a) 28%,transparent),transparent);z-index:0}
+.fun .st > *{position:relative;z-index:1}
+.fun .st b{font:700 16px var(--mono)}.fun .st span{font:600 10px var(--mono);letter-spacing:.14em;color:var(--mute)}
+.mtab{width:100%;border-collapse:collapse;font:12px var(--mono)}
+.mtab th{color:var(--mute);font-weight:600;text-align:right;padding:6px 4px;border-bottom:1px solid var(--line);font-size:10px;letter-spacing:.08em}
+.mtab td{text-align:right;padding:7px 4px;border-bottom:1px solid var(--line)}
+.mtab th:first-child,.mtab td:first-child{text-align:left;font-family:system-ui;font-weight:600;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chat{display:flex;flex-direction:column;gap:10px;margin:6px 0 12px}
+.msg{padding:10px 12px;border-radius:14px;font-size:14.5px;line-height:1.5;white-space:pre-wrap}
+.msg.q{align-self:flex-end;background:color-mix(in srgb,var(--a) 18%,transparent);border:1px solid color-mix(in srgb,var(--a) 40%,transparent);max-width:85%}
+.msg.a{background:rgba(120,160,220,.07);border:1px solid var(--line)}
+.msg.wait{color:var(--mute);font-style:italic}
+.askin{display:grid;gap:8px}
+.askin textarea,.askin select{background:rgba(120,160,220,.08);border:1px solid var(--line);color:var(--ink);border-radius:12px;padding:10px;font:15px system-ui;width:100%}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.chips button{background:none;border:1px solid var(--line);color:var(--ink);border-radius:99px;padding:6px 10px;font:12px system-ui;cursor:pointer}
+.panel > .row{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.panel > .ph + .row{border-top:0}
+.panel > .row .info{margin-left:0}
