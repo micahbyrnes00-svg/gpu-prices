@@ -86,6 +86,9 @@ const INFO = {
 <p><b>Admin ports:</b> a firewall rule (<code>iptables</code>) blocks Portainer, Cockpit, Glances and the raw site port from your home network, so only devices on your Tailscale network can reach them.</p>
 <p><b>SSH:</b> every successful remote login is reported, and repeated failed logins (someone guessing passwords) trigger an alert.</p>
 <p><b>Site probing:</b> bots constantly scan public websites for files like <code>/wp-admin</code> or <code>/.env</code>. The price site is plain static HTML with no login, database or scripts on the server, so those scans find nothing. Orbit counts them and alerts on heavy scanning.</p>`],
+  integrations: ["Integrations", `<p><b>Discord deal bot:</b> a <b>webhook</b> is a private address that lets a program post into one Discord channel without a bot account. After each price update, the Pi posts new deals there with your affiliate links. Paste the webhook URL here and Orbit checks it by sending a test message.</p>
+<p>The URL is stored only on the Pi, in a settings file only the Pi's user can read. Anyone with the URL could post to the channel, so keep it private. Delete the webhook in Discord to revoke it.</p>
+<p><b>Amazon Associates</b> and the <b>site address</b> come from the same settings file and are used when the site is rebuilt.</p>`],
   identity: ["Identity & security", `<p>Every request reaches the Pi through Tailscale, which attaches the verified identity of the signed-in user. Orbit only accepts the owner's account. Requests that change anything also need a special header, which blocks cross-site request forgery from other web pages.</p>
 <p>The app isn't exposed to the public internet or the local network. Only the owner's devices on the tailnet can reach it.</p>`],
 };
@@ -322,7 +325,7 @@ function onView(v) {
   if (v === "market") { loadStatus(); loadMoney(); }
   if (v === "alerts") { loadAlerts(); $("#alertDot").classList.remove("on"); try { localStorage.setItem("seenAlert", String(Date.now() / 1000)); } catch { } }
   if (v === "control") { loadStatus(); fillLogSources(); loadSecurity(); }
-  if (v === "settings") { loadStatus(); loadAlerts(); }
+  if (v === "settings") { loadStatus(); loadAlerts(); loadIntegrations(); }
 }
 const b64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const b64uDec = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), c => c.charCodeAt(0));
@@ -650,6 +653,19 @@ function renderChart() {
 document.addEventListener("click", e => {
   const r = e.target.closest("[data-range]"); if (r) { chartRange = +r.dataset.range; renderChart(); return; }
   const m = e.target.closest("[data-model]"); if (m) openChart(m.dataset.model);
+});
+
+/* ---------------- integrations ---------------- */
+async function loadIntegrations() {
+  let d; try { d = await api("api/integrations"); } catch { return; }
+  $("#dcState").textContent = d.discord ? "ON" : "OFF"; $("#dcState").className = "badge " + (d.discord ? "on" : "");
+  $("#dcNote").textContent = d.discord ? "Posting new deals to your channel after each price update" : "Not connected";
+  $("#amzNote").textContent = d.amazonTag ? "Tracking ID " + d.amazonTag : "Not connected";
+  $("#siteNote").textContent = d.siteUrl || "--";
+}
+$("#dcSave").addEventListener("click", async () => {
+  const r = await post("api/integrations/discord", { url: $("#dcUrl").value.trim() });
+  toast((r.ok ? "✓ " : "✗ ") + r.message); if (r.ok) $("#dcUrl").value = ""; loadIntegrations();
 });
 
 /* ---------------- boot ---------------- */

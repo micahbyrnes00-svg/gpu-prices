@@ -466,6 +466,33 @@ def logs(q):
     return 200, out[-200000:]
 
 
+ENV_FILE = REPO / ".env"
+
+
+def env_get(key):
+    try:
+        for line in ENV_FILE.read_text().splitlines():
+            if line.startswith(key + "="):
+                return line.split("=", 1)[1]
+    except OSError:
+        pass
+    return ""
+
+
+def env_set(key, val):
+    lines = ENV_FILE.read_text().splitlines() if ENV_FILE.exists() else []
+    lines = [l for l in lines if not l.startswith(key + "=")] + [f"{key}={val}"]
+    ENV_FILE.write_text("\n".join(lines) + "\n")
+    ENV_FILE.chmod(0o600)
+
+
+def discord_test(url):
+    import urllib.request
+    req = urllib.request.Request(url, json.dumps({"content": "Deal alerts connected. New deals will post here after each price update."}).encode(),
+                                 {"Content-Type": "application/json", "User-Agent": "UsedTechPrices-DealBot/1"})
+    urllib.request.urlopen(req, timeout=20).read()
+
+
 def bg(fn):
     threading.Thread(target=fn, daemon=True).start()
 TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css",
@@ -532,6 +559,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/auth/options":
             return self._json(200, {"challenge": webauthn.new_challenge(), "rpId": self._host().split(":")[0],
                                     "credentials": webauthn.credential_ids()})
+        if path == "/api/integrations":
+            return self._json(200, {"discord": bool(env_get("DISCORD_WEBHOOK")), "amazonTag": env_get("AMAZON_TAG"),
+                                    "siteUrl": env_get("SITE_URL")})
         if path == "/api/me":
             return self._json(200, {"login": self.headers.get("Tailscale-User-Login", "local"),
                                     "name": self.headers.get("Tailscale-User-Name", "")})
@@ -598,6 +628,19 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/network/speedtest":
             bg(netradar.speedtest)
             return self._json(200, {"ok": True, "message": "Speed test running (about 30 s)…"})
+        if path == "/api/integrations/discord":
+            url = str(body.get("url", "")).strip()
+            if not url:
+                env_set("DISCORD_WEBHOOK", "")
+                return self._json(200, {"ok": True, "message": "Discord disconnected"})
+            if not re.match(r"^https://(discord|discordapp)\.com/api/webhooks/\d+/[\w-]+$", url):
+                return self._json(400, {"ok": False, "message": "That isn't a Discord webhook URL"})
+            try:
+                discord_test(url)
+            except Exception as e:  # noqa: BLE001
+                return self._json(400, {"ok": False, "message": f"Discord rejected it: {str(e)[:80]}"})
+            env_set("DISCORD_WEBHOOK", url)
+            return self._json(200, {"ok": True, "message": "Connected. Test message sent to Discord."})
         if path == "/api/network/wake":
             try:
                 t = netradar.wake(body.get("mac", ""))
