@@ -93,15 +93,22 @@ keys)  # prompt for eBay production keys (typed by you, never shown) and test th
   python3 -c 'from tracker.ebay import EbayClient; c=EbayClient(); c._get_token(); r=c.search("RTX 3080","27386",200,700,pages=1); print("eBay OK:", len(r), "listings for RTX 3080")' \
     || echo "Key test FAILED - check the keys are the Production set"
   ;;
-golive)  # first real build, serve it, publish through Tailscale Funnel, enable 6-hour updates
+golive)  # first real build with live eBay data, serve it, enable 6-hour updates
   grep -q '^EBAY_CLIENT_SECRET=.\+' .env || { echo "Run: bash p.sh keys  first"; exit 1; }
-  dns=$(tailscale status --json | python3 -c 'import json,sys;print(json.load(sys.stdin)["Self"]["DNSName"].rstrip("."))')
-  bash "$0" setenv SITE_URL "https://$dns"
+  site=$(grep -E '^SITE_URL=' .env | tail -1 | cut -d= -f2-)
+  if systemctl is-active --quiet cloudflared && [ -n "$site" ] && ! echo "$site" | grep -q 'ts.net\|github.io'; then
+    via="Cloudflare ($site)"
+  else
+    dns=$(tailscale status --json | python3 -c 'import json,sys;print(json.load(sys.stdin)["Self"]["DNSName"].rstrip("."))')
+    site="https://$dns"; bash "$0" setenv SITE_URL "$site" >/dev/null; via="Tailscale Funnel"
+  fi
+  echo "Collecting live prices for every model (first run takes 5-15 minutes)..."
   bash deploy/update.sh || exit 1
   bash "$0" web 127.0.0.1
-  sudo tailscale funnel --bg 8088 || { echo "Funnel not allowed yet: enable HTTPS + Funnel in the Tailscale admin console (link above), then rerun golive."; exit 1; }
+  [ "$via" = "Tailscale Funnel" ] && { sudo tailscale funnel --bg 8088 || { echo "Funnel not allowed yet."; exit 1; }; }
   sudo systemctl enable --now gpu-prices.timer
-  echo "LIVE: https://$dns"; systemctl list-timers gpu-prices.timer --no-pager | head -2
+  sudo -n /usr/bin/systemctl restart picommand.service 2>/dev/null
+  echo "LIVE via $via: $site"; systemctl list-timers gpu-prices.timer --no-pager | head -2
   ;;
 scale)  # resize the headless VNC desktop to fit the TigerVNC window; persists via kanshi
   mode=${2:-1504x846}
