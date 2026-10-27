@@ -231,6 +231,17 @@ cloudrun)  # make one backup now (runs as root via timer, or with sudo)
   done
   rclone --config "$conf" lsl gcrypt:
   ;;
+monitor)  # live stats web app (Glances), reachable only on your tailnet over HTTPS
+  docker rm -f glances >/dev/null 2>&1
+  docker run -d --name glances --restart unless-stopped --pid host -p 127.0.0.1:61208:61208 \
+    -e GLANCES_OPT="-w --disable-webui-password" -v /var/run/docker.sock:/var/run/docker.sock:ro \
+    -v /etc/os-release:/etc/os-release:ro nicolargo/glances:latest-full >/dev/null || exit 1
+  sleep 5
+  sudo tailscale serve --bg --https=8443 http://127.0.0.1:61208 >/dev/null
+  dns=$(tailscale status --json | python3 -c 'import json,sys;print(json.load(sys.stdin)["Self"]["DNSName"].rstrip("."))')
+  echo "Live stats (tailnet only): https://$dns:8443"
+  tailscale serve status
+  ;;
 stats)  # health snapshot
   echo "== $(hostname)  $(cat /proc/device-tree/model 2>/dev/null | tr -d '\0')"
   uptime -p; echo "load: $(cut -d' ' -f1-3 /proc/loadavg)  cores: $(nproc)"
