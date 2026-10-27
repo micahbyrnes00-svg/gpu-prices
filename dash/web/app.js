@@ -2,49 +2,81 @@
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const api = (p, o = {}) => fetch(p, { cache: "no-store", ...o }).then(r => r.json());
-const post = (p, body) => api(p, { method: "POST", headers: { "Content-Type": "application/json", "X-PiCommand": "1" }, body: JSON.stringify(body) });
+let unlockTok = null, unlockExp = 0;
+const post = (p, body) => api(p, { method: "POST", headers: { "Content-Type": "application/json", "X-PiCommand": "1",
+  ...(unlockTok && Date.now() < unlockExp ? { "X-Unlock": unlockTok } : {}) }, body: JSON.stringify(body) });
 
 const ACCENTS = { cyan: "#33e1ff", magenta: "#ff3df2", lime: "#b6ff3d", amber: "#ffb23d", violet: "#9d8cff" };
 const PANELS = { system: "System gauges", cores: "CPU cores", network: "Network", market: "Used market",
-  services: "Services", containers: "Containers", jobs: "Jobs & backups", links: "Links" };
+  services: "Services", containers: "Containers", jobs: "Jobs & backups", links: "Links", disks: "Drive health", money: "Money & traffic" };
 let settings = null, status = null, es = null;
 
 /* ---------------- info sheets: what each thing is and how it connects ---------------- */
 const INFO = {
-  overview: ["How Orbit fits together", `
-<p><b>The Pi</b> (Raspberry Pi 4, 4 GB) boots from the 2 TB Seagate. The SD card holds the old system as a last-resort fallback.</p>
-<p><b>Orbit</b> (this app) is a small Python service on the Pi (<code>picommand.service</code>) on port 8099, reachable only from the Pi itself. <code>tailscale serve</code> publishes it to your private Tailscale network over HTTPS. The service only answers requests that Tailscale has tagged with your login, so nobody else on the internet or your Wi-Fi can open it.</p>
-<p><b>The price site</b> works like this: every 6 hours <code>gpu-prices.timer</code> runs the tracker. It pulls listings from the official eBay API, stores them in SQLite, has Claude write short summaries, and rebuilds static pages in <code>/home/pi/site</code>. A Caddy web server in Docker serves those pages, and <b>Tailscale Funnel</b> makes them public at your ts.net address. Your router has no open ports.</p>
-<p><b>Money:</b> every "View on eBay" link carries your eBay Partner Network campaign ID, so qualifying purchases pay you a commission.</p>
-<p><b>Backups:</b> every Sunday <code>pi-cloud-backup.timer</code> compresses the whole system, encrypts it with your password, and uploads it to Google Drive. It keeps the last 4.</p>
-<p><b>Code:</b> everything lives in your GitHub repo <code>gpu-prices</code>. "Update this app" pulls the latest version.</p>`],
-  cpu: ["CPU load", `<p>Percentage of the 4 ARM cores busy, sampled every second from <code>/proc/stat</code>. Sustained 100% means the Pi is saturated. The weekly backup and price updates cause short spikes.</p>
-<p><b>Temp</b> comes from the SoC sensor. The Pi slows itself at 80 °C, so below 70 °C is comfortable.</p>
-<p><b>Clock</b> is the current ARM speed. 1800 MHz is full speed, and a lower number while busy means throttling.</p>
-<p><b>Power</b> reads the firmware's throttle flags. <code>0x0</code> means clean power. Anything else means under-voltage or throttling, which is the problem the new power supply fixed.</p>`],
-  mem: ["Memory", `<p>Used = total minus what Linux reports as <i>available</i>. Disk cache counts as available because Linux frees it instantly when programs need it. Swap is compressed RAM (zram), not the disk.</p>`],
-  disk: ["Disk", `<p>Space on the root filesystem, the Seagate's <code>sgroot</code> partition. Prices, the site, Docker images and logs all live here. The boot files sit on a small separate partition (<code>SGBOOT</code>).</p>`],
-  cores: ["Cores", `<p>Each bar is one CPU core. The line below is the last two minutes of overall load. Load average (1, 5 and 15 min) counts how many tasks were waiting to run. Under 4 on this 4-core Pi means it's keeping up.</p>`],
-  network: ["Network", `<p>Combined throughput on Ethernet and Wi-Fi, from <code>/proc/net/dev</code>. Docker's internal interfaces are excluded. Big upload spikes on Sunday nights are the encrypted backup going to Google Drive.</p>`],
-  procs: ["Top processes", `<p>The programs using the most CPU right now, from <code>ps</code>. Usual residents: <code>wayvnc</code> (VNC), <code>labwc</code> (desktop), <code>dockerd</code>, <code>tailscaled</code>, and <code>zstd</code>/<code>rclone</code> during backups.</p>`],
-  market: ["Used market index", `<p>The average 7-day change in the typical used price across every tracked GPU or RAM kit. Green and down means cheaper, which is good for buyers. Red and up means prices are rising.</p>
-<p>The data comes from the tracker's SQLite database, which <code>gpu-prices.timer</code> fills every 6 hours from the eBay Browse API. This panel reads the same numbers the public site shows.</p>`],
-  deals: ["Live deals", `<p>Listings at least 15% under the model's typical price from sellers with 98%+ feedback and 20+ ratings. Listings that look too good to be true (under 60% of the low range) are dropped.</p>
-<p>Tapping one opens eBay through your affiliate link.</p>`],
-  rows: ["Model rows", `<p>The typical (median) used price including shipping, the 7-day change, and a 30-day sparkline. Tap a row to open that model's public page on your site.</p>`],
-  jobs: ["Jobs", `<p><b>Run price update</b> starts <code>gpu-prices.service</code> now, without waiting for the 6-hour timer.</p>
-<p><b>Run cloud backup</b> starts the encrypted Google Drive backup now. It takes about 15 to 40 minutes.</p>
-<p><b>Go public / Go private</b> turns Tailscale Funnel on or off for the price site. Off means the site stays private.</p>
-<p><b>Update this app</b> pulls the latest code from GitHub and restarts this service.</p>
-<p>Each button runs one fixed command. The app can't run arbitrary commands.</p>`],
-  services: ["Services", `<p>The systemd units that make up the setup. <b>Timers</b> schedule jobs. Services are long-running programs.</p>
-<p><code>tailscaled</code> handles private networking, Funnel and this app's HTTPS. <code>docker</code> runs the web server, Portainer and Glances. <code>wayvnc</code> is remote desktop.</p>
-<p>Restart fixes most hiccups. Stopping <code>tailscaled</code> cuts off this app until the Pi reboots.</p>`],
-  containers: ["Containers", `<p>Docker containers on the Pi. <code>gpu-prices-web</code> (Caddy) serves the price site to Funnel. <code>portainer</code> is a full Docker admin UI. <code>glances</code> is a detailed system monitor.</p>`],
-  links: ["Links", `<p>Shortcuts to the other tools. Tailnet links only work while your phone's Tailscale is connected.</p>`],
-  power: ["Reboot", `<p>Hold for 2 seconds to reboot the Pi. It takes about 2 minutes to come back, because it boots from a spinning disk. This app reconnects by itself.</p>`],
-  settings: ["Settings", `<p>Settings are saved on the Pi, so every device sees the same layout. Refresh controls how often live numbers update. A faster refresh uses a little more battery.</p>`],
-  identity: ["Identity & security", `<p>Tailscale tells the Pi who you are on every request. The app only accepts your login, so there's no password to steal, and it isn't reachable from the public internet.</p>`],
+  overview: ["How Orbit works", `
+<p><b>Orbit</b> is a control panel for a Raspberry Pi, a small single-board Linux computer that runs all day as a home server. The Pi runs the operating system from an external USB drive, which is faster and lasts longer than a microSD card. Its programs and data are stored on that drive too.</p>
+<p><b>The app:</b> a small Python web service on the Pi (<code>picommand.service</code>, managed by <b>systemd</b>, the Linux service manager) builds every screen. It listens only on the Pi's own loopback address (<code>127.0.0.1</code>), so no other device can connect to it directly.</p>
+<p><b>Private access:</b> <b>Tailscale</b> is a VPN that links your own devices into a private, encrypted network (a "tailnet") over WireGuard. <code>tailscale serve</code> publishes the app on that network with a real HTTPS certificate. Each request is labelled with the signed-in Tailscale user, and Orbit only answers the owner's account. There's no password to steal and no open port on the router.</p>
+<p><b>The price site:</b> a scheduled job collects used GPU and RAM listings from the official eBay API, stores them in a <b>SQLite</b> database, and generates static HTML pages. <b>Caddy</b>, a web server running in a <b>Docker</b> container, serves those pages. <b>Tailscale Funnel</b> can make the site public without opening router ports.</p>
+<p><b>Revenue:</b> product links carry an eBay Partner Network (affiliate) tracking ID. eBay pays a commission on qualifying purchases made after a visitor clicks through.</p>
+<p><b>Installable app:</b> Orbit is a Progressive Web App. Adding it to the Home Screen gives it its own icon, full-screen display and push notifications.</p>`],
+  cpu: ["CPU, temperature & power", `<p><b>CPU load</b> is the share of time the processor's 4 cores spend working. It's measured once a second from the Linux kernel's counters in <code>/proc/stat</code>. Short spikes during scheduled jobs are normal. Staying near 100% means the Pi is overloaded.</p>
+<p><b>Temp</b> is the processor (SoC) temperature from its built-in sensor. The Pi automatically slows itself (thermal throttling) at about 80 °C, so under 70 °C is healthy.</p>
+<p><b>Clock</b> is the current CPU frequency. The Pi lowers it when idle to save power and raises it under load. A low clock while busy points to heat or power throttling.</p>
+<p><b>Power</b> reads the firmware's throttle flags (<code>vcgencmd get_throttled</code>). <code>0x0</code> / CLEAN means the power supply is delivering enough voltage. Any other value means under-voltage or throttling, usually from a weak power supply or cable, which can cause crashes and drive disconnects.</p>`],
+  mem: ["Memory (RAM)", `<p>Used memory is total RAM minus what the kernel reports as <i>available</i>. Linux uses spare RAM as a file cache to speed things up, and gives it back instantly when a program needs it, so the cache doesn't count as used.</p>
+<p>Swap here is <b>zram</b>, a compressed area inside RAM, not space on the disk.</p>`],
+  disk: ["Storage", `<p>How full the root filesystem (<code>/</code>) is: the partition holding the operating system, apps, databases, Docker images and logs. A small separate partition holds the boot files the Pi's firmware reads at power-on.</p>
+<p>Above about 90% full, updates and databases can start failing, so an alert fires before that point.</p>`],
+  cores: ["CPU cores", `<p>Each bar is one of the processor's cores. The line underneath is overall load for the last two minutes.</p>
+<p><b>Load average</b> (1, 5 and 15 minutes) is the average number of tasks running or waiting for CPU time. On a 4-core machine, numbers under 4 mean it's keeping up.</p>`],
+  network: ["Throughput", `<p>Live data rate in and out of the Pi across its wired (Ethernet) and wireless (Wi-Fi) interfaces, read from <code>/proc/net/dev</code>. Docker's internal virtual interfaces are excluded so traffic isn't counted twice.</p>`],
+  procs: ["Top processes", `<p>The programs using the most CPU right now, from <code>ps</code>. A <b>PID</b> is the process ID Linux assigns to each running program. Common entries are the web server, Docker, Tailscale and the remote-desktop server.</p>`],
+  market: ["Used market index", `<p>The average 7-day change in typical used price across all tracked graphics cards or RAM kits. Down (green) means prices are falling, which is good for buyers. Up (red) means rising.</p>
+<p>Prices come from listings collected every 6 hours through the eBay Browse API and stored in the tracker's database. This screen shows the same numbers as the public site.</p>`],
+  deals: ["Live deals", `<p>Listings priced at least 15% below that model's typical (median) price. To reduce scams, only sellers with 98%+ positive feedback and at least 20 ratings count, and anything priced suspiciously low is dropped.</p>
+<p>Tapping a deal opens eBay through the affiliate link.</p>`],
+  rows: ["Model prices", `<p>For each model: the <b>median</b> used price including shipping (the middle value, so a few extreme listings don't skew it), the 7-day change, and a 30-day trend line. Tap a row to open that model's page on the public site.</p>`],
+  jobs: ["Jobs", `<p><b>Run price update</b> starts the price collection job immediately instead of waiting for its scheduled time.</p>
+<p><b>Run cloud backup</b> creates a compressed, encrypted image of the system and uploads it to cloud storage. It can take a while, depending on upload speed.</p>
+<p><b>Go public / Go private</b> turns Tailscale Funnel on or off, which controls whether the price site is reachable from the internet.</p>
+<p><b>Update this app</b> pulls the latest code from the Git repository and restarts the service.</p>
+<p>Each button runs one predefined command, and the server rejects anything else. It never runs arbitrary commands.</p>`],
+  services: ["Services & timers", `<p><b>Services</b> are long-running background programs managed by systemd. <b>Timers</b> are systemd's scheduler (like cron) and start jobs at set times. The badge shows the current state, such as running, exited or failed.</p>
+<p>↻ restarts a unit, which fixes most hiccups. ■ stops it and ▶ starts it. Stopping <code>tailscaled</code> cuts off remote access to this app until it's started again or the Pi reboots.</p>`],
+  containers: ["Containers", `<p><b>Docker</b> runs apps in isolated containers that each bundle their own dependencies. That keeps them separate from the main system and easy to update or remove. The list shows each container's image (the app it runs) and its status.</p>`],
+  links: ["Links", `<p>Shortcuts to related tools and accounts. Addresses on the private tailnet only open while the phone's Tailscale VPN is connected.</p>`],
+  power: ["Reboot", `<p>Hold the button for 2 seconds to restart the Pi. The hold stops accidental taps. Booting from a USB drive takes a minute or two, and the app reconnects on its own.</p>`],
+  settings: ["Settings", `<p>Settings are saved on the Pi, not in the browser, so every device sees the same layout. Refresh sets how often live numbers update. Faster updates use slightly more phone battery and data.</p>`],
+  smart: ["Drive health (SMART)", `<p>Hard drives and SSDs track their own condition with <b>SMART</b> (Self-Monitoring, Analysis and Reporting Technology). Orbit reads it with <code>smartctl</code> on a schedule. A tightly limited sudo rule allows only that one read-only command.</p>
+<p><b>Reallocated</b>, <b>pending</b> and <b>uncorrectable</b> sectors are areas of the disk that failed or are about to fail. Zero is ideal. A count that keeps rising means the drive is wearing out and should be backed up and replaced. <b>CRC errors</b> are data transfer errors, usually from a bad cable or USB adapter, not the disk.</p>
+<p>Some USB enclosures don't pass SMART data through, so those drives show N/A. An alert fires on a failed health check, new bad sectors, or high drive temperature.</p>`],
+  internet: ["Internet monitor", `<p>Every 30 seconds the Pi sends a <b>ping</b> (an ICMP echo request) to two public DNS servers, Cloudflare 1.1.1.1 and Google 8.8.8.8. If either replies, the connection is up. <b>Latency</b> is the round-trip time in milliseconds.</p>
+<p>Three failed checks in a row count as an outage. You get an alert when it starts and when service comes back. Uptime percentages are calculated from the stored checks, which are kept for 8 days.</p>`],
+  speed: ["Speed test", `<p>Measures the Pi's own connection by downloading about 20 MB from and uploading about 5 MB to Cloudflare's speed-test servers, timing each transfer. Results are in megabits per second (Mbps).</p>
+<p>A wired Pi measures close to the internet plan's speed. Over Wi-Fi the result is also limited by signal strength.</p>`],
+  devices: ["Network radar", `<p>Every few minutes the Pi pings each address on the local network. It then reads the kernel's <b>ARP/neighbour table</b>, the list of IP addresses mapped to hardware <b>MAC addresses</b> for devices that answered.</p>
+<p>The manufacturer is looked up from the first half of the MAC address (the OUI, assigned by the IEEE). "Private address" means a phone or tablet using a randomized Wi-Fi MAC for privacy.</p>
+<p>Devices found on the first scan are marked trusted. Any new device after that is flagged and triggers an alert. Tap a name to rename it, ✓ to trust it, or ✕ to forget it. The radar only observes and doesn't block or change other devices.</p>`],
+  money: ["Money & traffic", `<p><b>Traffic</b> comes from the web server's access log, which records each page request. To count unique visitors without storing anyone's IP address, Orbit keeps only a one-way hash that changes daily. Known bots and crawlers are filtered out.</p>
+<p><b>Clicks:</b> when a visitor taps through to eBay, the site sends a tiny tracking request (<code>/c</code>), so you can see which products get interest.</p>
+<p><b>Earnings:</b> eBay Partner Network doesn't offer a live earnings feed, so earnings are imported. Download the <i>Transaction Detail Report</i> (CSV) from the EPN portal and tap Import. New commissions are added, duplicates are skipped, and a "Money made" notification is sent. EPN usually updates reports within a day.</p>`],
+  push: ["Push notifications", `<p>Orbit sends notifications with the <b>Web Push</b> standard. The phone registers with its platform's push service (Apple's, on iPhone), and the Pi sends each message there for delivery.</p>
+<p>Each message is encrypted with keys only the subscribed device holds, so the push service relays it without being able to read it. The Pi proves it's the sender with a signed <b>VAPID</b> key.</p>
+<p>On iPhone, push only works from the Home Screen app (iOS 16.4 or later). Open Orbit from its icon, tap Enable and allow notifications. Each device is subscribed separately, and expired subscriptions are removed automatically.</p>`],
+  rules: ["Alert rules", `<p>A background watcher on the Pi checks every rule about every 30 seconds. Each rule can be turned on or off and its threshold changed, and changes save right away.</p>
+<p>Cooldowns stop an ongoing problem from sending repeated notifications. <span class="lvl critical"></span>Critical alerts (power, drive failure, outages) still come through during quiet hours.</p>`],
+  watchlist: ["Deal watchlist", `<p>Choose a model and the maximum price you'd pay, including shipping. After each price update, any listing from a trusted seller at or below that price sends a notification with a direct link. Each listing alerts only once.</p>`],
+  quiet: ["Quiet hours", `<p>During quiet hours, info and warning alerts are still saved to History but don't make a sound or appear on the phone. Critical alerts always come through.</p>`],
+  schedule: ["Schedule", `<p>Sets how often the heavier background checks run. Device scans ping the whole local network. Speed tests use about 25 MB of data each. Drive health checks wake sleeping drives. The defaults balance freshness against load.</p>`],
+  history: ["History", `<p>The most recent 300 alerts, newest first. "Pushed" means a notification was delivered to at least one device. "Logged only" means it was recorded but not sent, because of quiet hours or no subscribed devices.</p>`],
+  logs: ["Live logs", `<p>Recent output from a service, read from the systemd <b>journal</b> with <code>journalctl</code>, or from a container with <code>docker logs</code>. Logs are the first place to look when something fails.</p>
+<p>Only known services and containers can be read. FOLLOW refreshes every 3 seconds and keeps the newest lines in view.</p>`],
+  faceid: ["Face ID", `<p>Adds a <b>passkey</b> (WebAuthn), a cryptographic key pair whose private half stays in the phone's Secure Enclave and is unlocked by Face ID. The Pi keeps only the public key.</p>
+<p>Once it's set up, risky actions ask for Face ID first: reboot, stopping services, going public and updating. The phone signs a one-time challenge from the Pi, and the Pi checks the signature before allowing the action. One approval lasts 5 minutes.</p>
+<p>This is a second layer on top of the Tailscale login check.</p>`],
+  identity: ["Identity & security", `<p>Every request reaches the Pi through Tailscale, which attaches the verified identity of the signed-in user. Orbit only accepts the owner's account. Requests that change anything also need a special header, which blocks cross-site request forgery from other web pages.</p>
+<p>The app isn't exposed to the public internet or the local network. Only the owner's devices on the tailnet can reach it.</p>`],
 };
 
 function openInfo(key) {
@@ -62,7 +94,7 @@ const fmtUp = s => { const d = Math.floor(s / 86400), h = Math.floor(s % 86400 /
 const money = v => v == null ? "--" : "$" + Math.round(v).toLocaleString();
 const pct = v => v == null ? '<span class="flat">--</span>' : `<span class="${v > .5 ? "up" : v < -.5 ? "down" : "flat"}">${v > .5 ? "▲" : v < -.5 ? "▼" : "•"} ${Math.abs(v).toFixed(1)}%</span>`;
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const ago = t => { if (!t) return "never"; const s = Date.now() / 1000 - t; return s < 0 ? "in " + fmtUp(-s) : fmtUp(s) + " ago"; };
+const ago = t => { if (!t) return "never"; const s = Date.now() / 1000 - t; if (Math.abs(s) < 60) return "just now"; return s < 0 ? "in " + fmtUp(-s) : fmtUp(s) + " ago"; };
 function setRing(el, frac) {
   const r = el.r.baseVal.value, c = 2 * Math.PI * r;
   el.style.strokeDasharray = c; el.style.strokeDashoffset = c * (1 - Math.max(0, Math.min(1, frac)));
@@ -101,7 +133,7 @@ function miniSpark(data) {
 /* ---------------- live stream ---------------- */
 const hist = { cpu: [], rx: [], tx: [] };
 function onLive(d) {
-  $("#host").textContent = `by Micah · ${d.host || "pi"} · ${(d.model || "").replace("Raspberry Pi", "RPi").replace(" Model B", "")}`;
+  $("#host").textContent = `by Micah · ${d.host || "pi"}`;
   $("#cpuVal").textContent = Math.round(d.cpu);
   setRing($("#cpuArc"), d.cpu / 100);
   $("#tempVal").innerHTML = d.temp != null ? `${d.temp.toFixed(1)}<small>°C</small>` : "--";
@@ -209,7 +241,8 @@ function renderControl(s) {
 async function runAction(action, target, btn) {
   btn?.classList.add("busy");
   try {
-    const r = await post("api/action", { action, target });
+    let r = await post("api/action", { action, target });
+    if (r.needFaceId && await faceUnlock()) r = await post("api/action", { action, target });
     toast((r.ok ? "✓ " : "✗ ") + (r.message || action));
   } catch { toast("✗ no response"); }
   btn?.classList.remove("busy");
@@ -219,7 +252,7 @@ document.addEventListener("click", e => {
   const info = e.target.closest("[data-info-btn]"); if (info) { openInfo(info.dataset.infoBtn); return; }
   if (e.target.closest("#sheet .close") || e.target.id === "sheet") { closeInfo(); return; }
   const tab = e.target.closest(".tabs button");
-  if (tab) { $$(".tabs button").forEach(b => b.classList.toggle("on", b === tab)); $$(".view").forEach(v => v.classList.toggle("active", v.id === "view-" + tab.dataset.view)); scrollTo(0, 0); if (tab.dataset.view !== "system") loadStatus(); return; }
+  if (tab) { $$(".tabs button").forEach(b => b.classList.toggle("on", b === tab)); $$(".view").forEach(v => v.classList.toggle("active", v.id === "view-" + tab.dataset.view)); scrollTo(0, 0); history.replaceState(null, "", "#" + tab.dataset.view); onView(tab.dataset.view); return; }
   const act = e.target.closest(".act[data-action]"); if (act) { runAction(act.dataset.action, "", act); return; }
   const b = e.target.closest("[data-act]");
   if (b) { const a = b.dataset.act, t = b.dataset.target; if ((a === "stop" || t === "tailscaled.service") && !confirm(`${a} ${t}?`)) return; runAction(a, t, b); }
@@ -242,7 +275,7 @@ function applySettings(s) {
   document.body.classList.toggle("reduce", s.reduceMotion);
   $$("[data-panel]").forEach(p => p.classList.toggle("hidden", s.panels[p.dataset.panel] === false));
   $("#refresh").value = s.refresh; $("#refreshVal").textContent = s.refresh + "s";
-  $("#compact").checked = s.compact; $("#reduceMotion").checked = s.reduceMotion;
+  $("#compact").checked = s.compact; $("#reduceMotion").checked = s.reduceMotion; $("#faceId").checked = s.faceId !== false;
   $("#swatches").innerHTML = Object.entries(ACCENTS).map(([k, c]) => `<button class="sw ${k === s.accent ? "on" : ""}" style="background:${c};color:${c}" data-accent="${k}" aria-label="${k}"></button>`).join("");
   $("#panelToggles").innerHTML = Object.entries(PANELS).map(([k, n]) => `<label class="tog"><span>${n}</span><input type="checkbox" data-ptog="${k}" ${s.panels[k] !== false ? "checked" : ""}></label>`).join("");
 }
@@ -267,13 +300,256 @@ function addInfoButtons() {
   });
 }
 
+/* ---------------- views ---------------- */
+let cur = "system";
+function onView(v) {
+  cur = v;
+  if (v === "network") loadNetwork();
+  if (v === "market") { loadStatus(); loadMoney(); }
+  if (v === "alerts") { loadAlerts(); $("#alertDot").classList.remove("on"); try { localStorage.setItem("seenAlert", String(Date.now() / 1000)); } catch { } }
+  if (v === "control") { loadStatus(); fillLogSources(); }
+  if (v === "settings") { loadStatus(); loadAlerts(); }
+}
+const b64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const b64uDec = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), c => c.charCodeAt(0));
+const when = t => t ? new Date(t * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "--";
+
+/* ---------------- drive health ---------------- */
+async function loadDisks() {
+  let d; try { d = await api("api/disks"); } catch { return; }
+  const el = $("#drives");
+  if (!d.disks?.length) { el.innerHTML = `<div class="note">${d.ts ? "No USB/SATA drives found." : "First read runs a minute after start."}</div>`; return; }
+  el.innerHTML = d.disks.map(x => {
+    if (x.error) return `<div class="row"><div class="main"><div class="name">${esc(x.model || x.dev)}</div><div class="meta">${esc(x.dev)} · ${esc(x.size)}</div><div class="mini wrap">${esc(x.error)}</div></div><span class="badge">N/A</span></div>`;
+    const bad = Object.entries(x.attrs || {}).filter(([k, v]) => v > 0 && k !== "Command timeouts");
+    const ok = x.passed && !bad.length;
+    return `<div class="row"><div class="main"><div class="name">${esc(x.model || x.dev)}</div><div class="meta">${esc(x.dev)} · ${esc(x.size)} · ${x.hours != null ? Math.round(x.hours / 24) + " days on" : ""}${x.cycles != null ? " · " + x.cycles + " starts" : ""}</div>
+      ${bad.length ? `<div class="meta up">${bad.map(([k, v]) => esc(k) + " " + v).join(" · ")}</div>` : ""}</div>
+      <div class="num">${x.temp != null ? x.temp + "°C" : ""}<div class="meta"><span class="badge ${ok ? "on" : x.passed ? "warn" : "off"}">${ok ? "HEALTHY" : x.passed ? "WATCH" : "FAILING"}</span></div></div></div>`;
+  }).join("") + `<div class="mini" style="padding-top:6px">checked ${ago(d.ts)}</div>`;
+}
+$("#smartRefresh").addEventListener("click", async () => { await post("api/disks/refresh", {}); toast("Reading drives…"); setTimeout(loadDisks, 8000); });
+
+/* ---------------- network radar ---------------- */
+async function loadNetwork() {
+  let n; try { n = await api("api/network"); } catch { return; }
+  const st = $("#netState");
+  st.textContent = n.online ? "ONLINE" : n.latencySeries.length ? "DOWN" : "--";
+  st.className = "badge " + (n.online ? "on" : n.latencySeries.length ? "off" : "");
+  $("#netLat").textContent = n.latency != null ? n.latency.toFixed(0) + " ms" : "--";
+  $("#up24").textContent = n.uptime24 != null ? n.uptime24 + "%" : "--";
+  $("#up7").textContent = n.uptime7 != null ? n.uptime7 + "%" : "--";
+  spark($("#latSpark"), [{ data: n.latencySeries, color: accent() }]);
+  $("#outages").innerHTML = n.outages.length ? n.outages.slice().reverse().map(o => `<div class="row"><div class="main"><div class="name">Outage</div><div class="meta">${when(o.start)}</div></div><div class="num">${o.end ? fmtUp(o.end - o.start) : "ongoing"}</div></div>`).join("")
+    : `<div class="meta">No outages in the last 24h.</div>`;
+  const last = n.speed.find(s => s.down != null);
+  $("#spDown").textContent = last ? last.down + " Mb" : "--";
+  $("#spUp").textContent = last ? last.up + " Mb" : "--";
+  $("#spPing").textContent = last ? last.ping.toFixed(0) + " ms" : "--";
+  $("#speedHist").innerHTML = n.speed.slice(0, 6).map(s => `<div class="row"><div class="main"><div class="meta">${when(s.ts)}</div></div><div class="num">${s.err ? '<span class="up">failed</span>' : `▼ ${s.down} · ▲ ${s.up} Mbps`}</div></div>`).join("");
+  const devs = n.devices || [];
+  const online = devs.filter(d => d.online).length, fresh = devs.filter(d => !d.trusted).length;
+  $("#devNote").textContent = devs.length ? `${online} online · ${devs.length} known${fresh ? ` · ${fresh} new` : ""} · scanned ${ago(n.lastScan)}` : "First scan runs shortly after start. Tap SCAN to run now.";
+  $("#devices").innerHTML = devs.map(d => `<div class="row dev ${d.trusted ? "" : "new"}" data-mac="${esc(d.mac)}">
+    <div class="main"><div class="name"><input value="${esc(d.name || d.host || d.vendor || d.mac)}" data-rename aria-label="Device name"></div>
+    <div class="meta">${esc(d.ip)} · ${esc((d.name || d.host) ? (d.vendor || d.mac) : d.mac)} · ${d.online ? "online" : "seen " + ago(d.last_seen)}</div></div>
+    ${d.trusted ? `<span class="badge ${d.online ? "on" : ""}">${d.online ? "ON" : "OFF"}</span>` : `<button class="btn go" data-trust>✓</button>`}
+    <button class="btn" data-forget>✕</button></div>`).join("");
+}
+document.addEventListener("change", async e => {
+  const r = e.target.closest("[data-rename]"); if (!r) return;
+  await post("api/network/device", { mac: r.closest("[data-mac]").dataset.mac, name: r.value.trim() }); toast("Saved");
+});
+document.addEventListener("click", async e => {
+  const row = e.target.closest(".dev[data-mac]"); if (!row) return;
+  if (e.target.closest("[data-trust]")) { await post("api/network/device", { mac: row.dataset.mac, trusted: true }); loadNetwork(); }
+  if (e.target.closest("[data-forget]")) { await post("api/network/forget", { mac: row.dataset.mac }); loadNetwork(); }
+});
+$("#scanBtn").addEventListener("click", async e => { e.target.classList.add("on"); toast((await post("api/network/scan", {})).message); setTimeout(() => { e.target.classList.remove("on"); loadNetwork(); }, 15000); });
+$("#speedBtn").addEventListener("click", async e => { e.target.textContent = "…"; toast((await post("api/network/speedtest", {})).message); setTimeout(() => { e.target.textContent = "RUN"; loadNetwork(); }, 35000); });
+
+/* ---------------- money ---------------- */
+async function loadMoney() {
+  let m; try { m = await api("api/money"); } catch { return; }
+  const usd = v => "$" + (v || 0).toFixed(2);
+  $("#earnTot").textContent = usd(m.earnings.total); $("#earn30").textContent = usd(m.earnings.last30);
+  $("#clicks7").textContent = m.clicks7; $("#vis24").textContent = m.today.u || 0; $("#vis7").textContent = m.week.u || 0; $("#views7").textContent = m.week.v || 0;
+  spark($("#visSpark"), [{ data: m.dailyVisitors.length ? m.dailyVisitors : [0, 0], color: accent() }]);
+  $("#moneyNote").textContent = (m.logFound ? "" : "Traffic log appears once the site is public. ") + "Earnings imported " + ago(m.earnings.lastImport) + ".";
+  const li = (rows, k, empty) => rows.length ? rows.map(r => `<div class="row"><div class="main"><div class="name">${esc(r[k] || "(direct)")}</div></div><div class="num">${r.n}</div></div>`).join("") : `<div class="meta">${empty}</div>`;
+  $("#topPages").innerHTML = li(m.pages, "path", "No visits yet.");
+  $("#topRefs").innerHTML = li(m.refs, "ref", "No referrers yet.");
+  $("#topClicked").innerHTML = li(m.clicked, "model", "No clicks yet.");
+  $("#earnRecent").innerHTML = m.earnings.recent.length ? m.earnings.recent.map(r => `<div class="row"><div class="main"><div class="name">${esc(r.item || "Commission")}</div><div class="meta">${when(r.ts)}</div></div><div class="num down">${usd(r.amount)}</div></div>`).join("") : `<div class="meta">No commissions imported yet.</div>`;
+}
+$("#tdrFile").addEventListener("change", async e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = await post("api/money/import", { csv: await f.text() }); e.target.value = "";
+  toast((r.ok ? "✓ " : "✗ ") + r.message); loadMoney();
+});
+
+/* ---------------- alerts + push ---------------- */
+let alertCfg = null, vapid = null, passkeys = [];
+async function loadAlerts() {
+  let a; try { a = await api("api/alerts"); } catch { return; }
+  alertCfg = a.config; vapid = a.vapid; passkeys = a.passkeys;
+  renderPush(a.subs); renderRules(); renderWatch(); renderFace();
+  const q = alertCfg.quiet, hrs = [...Array(24).keys()].map(h => `<option value="${h}">${String(h).padStart(2, "0")}:00</option>`).join("");
+  $("#quietOn").checked = q.enabled;
+  if (!$("#quietStart").options.length) { $("#quietStart").innerHTML = hrs; $("#quietEnd").innerHTML = hrs; }
+  $("#quietStart").value = q.start; $("#quietEnd").value = q.end;
+  for (const k in alertCfg.schedule) { const i = $("#sch_" + k); if (i && document.activeElement !== i) i.value = alertCfg.schedule[k]; }
+  $("#alertHist").innerHTML = a.history.length ? a.history.map(h => `<a class="row" href="${esc(h.url || "#")}"><div class="main"><div class="name"><span class="lvl ${esc(h.level)}"></span>${esc(h.title)}</div><div class="meta">${esc(h.body)}</div></div><div class="num"><div class="meta">${when(h.ts)}</div><div class="meta">${h.pushed ? "pushed" : "logged only"}</div></div></a>`).join("")
+    : `<div class="meta">No alerts yet.</div>`;
+  let seen = 0; try { seen = +localStorage.getItem("seenAlert") || 0; } catch { }
+  $("#alertDot").classList.toggle("on", cur !== "alerts" && a.history.some(h => h.ts > seen && h.level !== "info"));
+}
+async function pushSub() { const r = await navigator.serviceWorker?.ready; return r?.pushManager ? r.pushManager.getSubscription() : null; }
+async function renderPush(count) {
+  const st = $("#pushState"), note = $("#pushNote"), btn = $("#pushBtnText");
+  const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+  if (!("PushManager" in window) || !("serviceWorker" in navigator)) {
+    st.textContent = "UNAVAILABLE"; st.className = "badge off";
+    note.textContent = standalone ? "This browser doesn't support Web Push." : "Open Orbit from its Home Screen icon to enable notifications.";
+    $("#pushBtn").disabled = true; return;
+  }
+  const sub = await pushSub();
+  const on = !!sub && Notification.permission === "granted";
+  st.textContent = on ? "ON" : Notification.permission === "denied" ? "BLOCKED" : "OFF";
+  st.className = "badge " + (on ? "on" : Notification.permission === "denied" ? "off" : "");
+  btn.textContent = on ? "Disable on this device" : "Enable on this device";
+  $("#pushBtn").disabled = false;
+  note.textContent = Notification.permission === "denied" ? "Notifications are blocked. Turn them on in iPhone Settings → Notifications → Orbit."
+    : `${count} device${count === 1 ? "" : "s"} subscribed.`;
+}
+$("#pushBtn").addEventListener("click", async () => {
+  try {
+    const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription();
+    if (sub && Notification.permission === "granted") {
+      await post("api/push/unsubscribe", { endpoint: sub.endpoint }); await sub.unsubscribe(); toast("Notifications off"); return loadAlerts();
+    }
+    if (await Notification.requestPermission() !== "granted") { toast("Permission not granted"); return loadAlerts(); }
+    const s = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uDec(vapid) });
+    const r = await post("api/push/subscribe", s.toJSON());
+    toast(r.ok ? "✓ Notifications on" : "✗ " + (r.error || "failed")); loadAlerts();
+  } catch (err) { toast("✗ " + err.message); }
+});
+$("#pushTest").addEventListener("click", async () => { const r = await post("api/push/test", {}); toast(r.ok ? "✓ Test sent" : "✗ No subscribed devices answered"); setTimeout(loadAlerts, 1500); });
+$("#alertsClear").addEventListener("click", async () => { await post("api/alerts/clear", {}); loadAlerts(); });
+
+function renderRules() {
+  const el = $("#rules");
+  if (el.contains(document.activeElement)) return;
+  const unit = { limit: k => k === "disk_full" ? "%" : "°C", temp: () => "°C", visitors: () => "visitors", down: () => "Mbps", hour: () => ":00" };
+  el.innerHTML = Object.entries(alertCfg.rules).map(([k, r]) => `<div class="rule" data-rule="${k}">
+    <label class="tog"><span class="rn"><span class="lvl ${r.level}"></span>${esc(r.label)}</span><input type="checkbox" data-ron ${r.enabled ? "checked" : ""}></label>
+    <div class="rd">${esc(r.desc)}</div>
+    ${Object.entries(r.params).map(([p, v]) => `<div class="rp"><span>${p === "limit" || p === "temp" ? "Limit" : p === "hour" ? "Send at" : p === "visitors" ? "Threshold" : "Below"}</span><input type="number" data-rparam="${p}" value="${v}"><span>${unit[p] ? unit[p](k) : ""}</span></div>`).join("")}
+  </div>`).join("");
+}
+document.addEventListener("change", async e => {
+  const rule = e.target.closest("[data-rule]");
+  if (rule) {
+    const k = rule.dataset.rule, patch = {};
+    if (e.target.matches("[data-ron]")) patch.enabled = e.target.checked;
+    if (e.target.dataset.rparam) patch.params = { [e.target.dataset.rparam]: +e.target.value };
+    alertCfg = await post("api/alerts/config", { rules: { [k]: patch } }); toast("Saved"); return;
+  }
+  if (["quietOn", "quietStart", "quietEnd"].includes(e.target.id)) {
+    alertCfg = await post("api/alerts/config", { quiet: { enabled: $("#quietOn").checked, start: +$("#quietStart").value, end: +$("#quietEnd").value } }); toast("Saved");
+  }
+  if (e.target.id?.startsWith("sch_")) { alertCfg = await post("api/alerts/config", { schedule: { [e.target.id.slice(4)]: +e.target.value } }); toast("Saved"); }
+  if (e.target.id === "faceId") saveSettings({ faceId: e.target.checked });
+});
+
+function renderWatch() {
+  const models = status?.market?.models || [];
+  const sel = $("#watchModel");
+  if (sel.options.length !== Math.max(models.length, 1)) sel.innerHTML = models.map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join("") || "<option value=''>Prices load after the first update</option>";
+  const name = id => models.find(m => m.id === id)?.name || id;
+  $("#watch").innerHTML = alertCfg.watchlist.length ? alertCfg.watchlist.map((w, i) => `<div class="row"><div class="main"><div class="name">${esc(name(w.model))}</div><div class="meta">alert at or under</div></div><div class="num">$${w.max}</div><button class="btn" data-wdel="${i}">✕</button></div>`).join("")
+    : `<div class="meta">Nothing watched yet.</div>`;
+}
+$("#watchAdd").addEventListener("click", async () => {
+  const model = $("#watchModel").value, max = parseFloat($("#watchMax").value);
+  if (!model || !(max > 0)) return toast("Pick a model and a price");
+  alertCfg = await post("api/alerts/config", { watchlist: [...alertCfg.watchlist, { model, max }] }); $("#watchMax").value = ""; renderWatch(); toast("Watching");
+});
+document.addEventListener("click", async e => {
+  const d = e.target.closest("[data-wdel]"); if (!d) return;
+  const wl = alertCfg.watchlist.filter((_, i) => i !== +d.dataset.wdel);
+  alertCfg = await post("api/alerts/config", { watchlist: wl }); renderWatch();
+});
+
+/* ---------------- logs ---------------- */
+let followT = null;
+function fillLogSources() {
+  const sel = $("#logSrc"), prev = sel.value;
+  const units = (status?.services || []).map(u => u.unit), ctrs = (status?.containers || []).map(c => c.name);
+  const opts = [...new Set([...units, "gpu-prices.service", "pi-cloud-backup.service"])].map(u => `<option value="unit:${esc(u)}">${esc(u)}</option>`).join("")
+    + ctrs.map(c => `<option value="container:${esc(c)}">🐳 ${esc(c)}</option>`).join("");
+  if (sel.innerHTML !== opts) { sel.innerHTML = opts; if (prev) sel.value = prev; }
+}
+async function loadLogs() {
+  const [k, v] = ($("#logSrc").value || "").split(/:(.*)/s); if (!v) return;
+  const out = $("#logOut"), atEnd = out.scrollTop + out.clientHeight >= out.scrollHeight - 20;
+  try { const r = await api(`api/logs?${k}=${encodeURIComponent(v)}&n=300`); out.textContent = r.text ?? r.error ?? ""; } catch { out.textContent = "No response."; }
+  if (atEnd) out.scrollTop = out.scrollHeight;
+}
+$("#logLoad").addEventListener("click", () => { loadLogs().then(() => { const o = $("#logOut"); o.scrollTop = o.scrollHeight; }); });
+$("#logSrc").addEventListener("change", loadLogs);
+$("#logFollow").addEventListener("click", e => {
+  clearInterval(followT); followT = null;
+  if (e.target.classList.toggle("on")) { loadLogs(); followT = setInterval(() => cur === "control" && !document.hidden && loadLogs(), 3000); }
+});
+
+/* ---------------- Face ID (passkey) ---------------- */
+function renderFace() {
+  const on = passkeys.length > 0;
+  $("#faceState").textContent = on ? "ON" : "OFF"; $("#faceState").className = "badge " + (on ? "on" : "");
+  $("#faceNote").textContent = !window.PublicKeyCredential ? "This browser doesn't support passkeys." : on ? `Passkey set up ${when(passkeys[0].created)}.` : "Not set up. Power actions work without Face ID.";
+  $("#faceEnroll").style.display = on ? "none" : ""; $("#faceRemove").style.display = on ? "" : "none";
+  if (settings) $("#faceId").checked = settings.faceId !== false;
+}
+$("#faceEnroll").addEventListener("click", async () => {
+  try {
+    const o = await api("api/auth/options");
+    const cred = await navigator.credentials.create({ publicKey: {
+      challenge: b64uDec(o.challenge), rp: { id: o.rpId, name: "Orbit" },
+      user: { id: crypto.getRandomValues(new Uint8Array(16)), name: "owner@orbit", displayName: "Orbit owner" },
+      pubKeyCredParams: [{ type: "public-key", alg: -7 }], attestation: "none", timeout: 60000,
+      authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required", residentKey: "preferred" } } });
+    const r = await post("api/auth/register", { clientDataJSON: b64u(cred.response.clientDataJSON), attestationObject: b64u(cred.response.attestationObject) });
+    toast(r.ok ? "✓ Face ID set up" : "✗ " + r.message); loadAlerts();
+  } catch (err) { toast("✗ " + err.message); }
+});
+async function faceUnlock() {
+  try {
+    const o = await api("api/auth/options");
+    const a = await navigator.credentials.get({ publicKey: { challenge: b64uDec(o.challenge), rpId: o.rpId, userVerification: "required", timeout: 60000,
+      allowCredentials: o.credentials.map(id => ({ type: "public-key", id: b64uDec(id) })) } });
+    const r = await post("api/auth/verify", { id: b64u(a.rawId), clientDataJSON: b64u(a.response.clientDataJSON),
+      authenticatorData: b64u(a.response.authenticatorData), signature: b64u(a.response.signature) });
+    if (!r.ok) { toast("✗ " + r.message); return false; }
+    unlockTok = r.token; unlockExp = Date.now() + (r.seconds - 10) * 1000; return true;
+  } catch (err) { toast("✗ Face ID cancelled"); return false; }
+}
+$("#faceRemove").addEventListener("click", async () => {
+  let r = await post("api/auth/remove", {});
+  if (r.needFaceId && await faceUnlock()) r = await post("api/auth/remove", {});
+  toast(r.ok ? "Face ID removed" : "✗ Not removed"); loadAlerts();
+});
 /* ---------------- boot ---------------- */
 (async () => {
   addInfoButtons();
   try { applySettings(await api("api/settings")); } catch { }
   try { const me = await api("api/me"); $("#me").textContent = "Signed in via Tailscale as " + me.login; } catch { }
-  await seedHistory(); connect(); loadStatus();
-  setInterval(loadStatus, 30000);
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) { connect(); loadStatus(); } });
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => { });
+  await seedHistory(); connect(); loadStatus(); loadAlerts(); loadDisks();
+  const start = location.hash.slice(1);
+  if (start && $(`.tabs [data-view="${start}"]`)) $(`.tabs [data-view="${start}"]`).click();
+  setInterval(() => { loadStatus(); if (cur === "network") loadNetwork(); if (cur === "market") loadMoney(); if (cur === "alerts") loadAlerts(); }, 30000);
+  setInterval(loadDisks, 300000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { connect(); onView(cur); } });
+  navigator.serviceWorker?.addEventListener("message", e => { if (e.data?.type === "nav") { const v = (e.data.url.split("#")[1] || "alerts"); $(`.tabs [data-view="${v}"]`)?.click(); } });
 })();

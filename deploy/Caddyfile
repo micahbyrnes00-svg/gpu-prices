@@ -1,0 +1,34 @@
+{
+	admin off
+}
+
+:80 {
+	root * /usr/share/caddy
+	encode gzip
+
+	# JSON access log read by Orbit for traffic stats (no IPs are stored by Orbit)
+	log {
+		output file /logs/access.log {
+			roll_size 20MiB
+			roll_keep 3
+			mode 0644
+		}
+		format json
+	}
+
+	# affiliate click beacon from the site's "View" buttons
+	@beacon path /c
+	respond @beacon 204
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+	file_server
+
+	handle_errors {
+		rewrite * /404.html
+		file_server
+	}
+}

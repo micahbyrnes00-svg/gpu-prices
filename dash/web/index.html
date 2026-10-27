@@ -11,7 +11,7 @@
 <title>Orbit</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
-<link rel="icon" href="icon.svg">
+<link rel="icon" href="icon-mark.svg">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -19,13 +19,13 @@
 
 <header class="top">
   <div class="brand">
-    <img class="logoimg" src="icon-192.png" alt="" aria-hidden="true">
-    <div>
+    <img class="logoimg" src="icon-mark.svg" alt="" aria-hidden="true">
+    <div class="brandtxt">
       <div class="title">ORBIT</div>
-      <div class="sub" id="host">connecting…</div>
+      <div class="sub" id="host">by Micah</div>
     </div>
   </div>
-  <div class="topr"><button class="info big" data-info-btn="overview" aria-label="How it all fits together">i</button><div class="link-state" id="linkState"><span class="dot"></span><span id="linkText">LINK</span></div></div>
+  <div class="topr"><div class="link-state" id="linkState"><span class="dot"></span><span id="linkText">LINK</span></div><button class="info big" data-info-btn="overview" aria-label="How it all fits together">i</button></div>
 </header>
 
 <main id="views">
@@ -59,6 +59,11 @@
       </div>
     </div>
 
+    <div class="panel" data-panel="disks" data-info="smart">
+      <div class="ph"><span>DRIVE HEALTH</span><button class="btn" id="smartRefresh">↻</button></div>
+      <div class="list" id="drives"><div class="note">Reading SMART data…</div></div>
+    </div>
+
     <div class="panel" data-panel="cores" data-info="cores">
       <div class="ph"><span>CORES</span><span class="mini" id="loadVal">load --</span></div>
       <div class="cores" id="cores"></div>
@@ -80,6 +85,34 @@
     </div>
   </section>
 
+  <!-- NETWORK -->
+  <section class="view" id="view-network" aria-label="Network">
+    <div class="panel" data-info="internet">
+      <div class="ph"><span>INTERNET</span><span class="badge" id="netState">--</span></div>
+      <div class="stats3">
+        <div><div class="k">LATENCY</div><div class="v" id="netLat">--</div></div>
+        <div><div class="k">UPTIME 24H</div><div class="v" id="up24">--</div></div>
+        <div><div class="k">UPTIME 7D</div><div class="v" id="up7">--</div></div>
+      </div>
+      <canvas class="spark" id="latSpark" height="60" aria-label="Latency, last hour"></canvas>
+      <div class="list" id="outages"></div>
+    </div>
+    <div class="panel" data-info="speed">
+      <div class="ph"><span>SPEED TEST</span><button class="btn go" id="speedBtn">RUN</button></div>
+      <div class="stats3">
+        <div><div class="k">▼ DOWN</div><div class="v" id="spDown">--</div></div>
+        <div><div class="k">▲ UP</div><div class="v" id="spUp">--</div></div>
+        <div><div class="k">PING</div><div class="v" id="spPing">--</div></div>
+      </div>
+      <div class="list" id="speedHist"></div>
+    </div>
+    <div class="panel" data-info="devices">
+      <div class="ph"><span>DEVICES</span><button class="btn" id="scanBtn">SCAN</button></div>
+      <div class="note" id="devNote"></div>
+      <div class="list" id="devices"></div>
+    </div>
+  </section>
+
   <!-- MARKET -->
   <section class="view" id="view-market" aria-label="Market">
     <div class="panel" data-panel="market" data-info="market">
@@ -89,6 +122,26 @@
         <div class="idx"><div class="k">GPU · 7D</div><div class="v" id="gpu7">--</div><div class="mini" id="gpu30"></div></div>
         <div class="idx"><div class="k">RAM · 7D</div><div class="v" id="ram7">--</div><div class="mini" id="ram30"></div></div>
       </div>
+    </div>
+    <div class="panel" data-panel="money" data-info="money">
+      <div class="ph"><span>MONEY</span><a class="mini" href="https://partnernetwork.ebay.com/" target="_blank" rel="noopener">EPN ↗</a></div>
+      <div class="stats3">
+        <div><div class="k">EARNED</div><div class="v" id="earnTot">--</div></div>
+        <div><div class="k">30 DAYS</div><div class="v" id="earn30">--</div></div>
+        <div><div class="k">CLICKS 7D</div><div class="v" id="clicks7">--</div></div>
+      </div>
+      <div class="stats3">
+        <div><div class="k">VISITORS 24H</div><div class="v" id="vis24">--</div></div>
+        <div><div class="k">VISITORS 7D</div><div class="v" id="vis7">--</div></div>
+        <div><div class="k">VIEWS 7D</div><div class="v" id="views7">--</div></div>
+      </div>
+      <canvas class="spark" id="visSpark" height="50" aria-label="Daily visitors, 30 days"></canvas>
+      <div class="note" id="moneyNote"></div>
+      <div class="sub2">TOP PAGES</div><div class="list" id="topPages"></div>
+      <div class="sub2">REFERRERS</div><div class="list" id="topRefs"></div>
+      <div class="sub2">MOST CLICKED</div><div class="list" id="topClicked"></div>
+      <div class="sub2">RECENT COMMISSIONS</div><div class="list" id="earnRecent"></div>
+      <label class="btn wide filebtn">IMPORT EPN REPORT (CSV)<input type="file" id="tdrFile" accept=".csv,text/csv"></label>
     </div>
     <div class="panel" data-panel="market" data-info="deals">
       <div class="ph"><span>LIVE DEALS</span><span class="mini">≥15% under typical</span></div>
@@ -101,6 +154,46 @@
     <div class="panel" data-panel="market" data-info="rows">
       <div class="ph"><span>DESKTOP RAM</span></div>
       <div class="list" id="ramRows"></div>
+    </div>
+  </section>
+
+  <!-- ALERTS -->
+  <section class="view" id="view-alerts" aria-label="Alerts">
+    <div class="panel" data-info="push">
+      <div class="ph"><span>PUSH NOTIFICATIONS</span><span class="badge" id="pushState">--</span></div>
+      <div class="note" id="pushNote"></div>
+      <div class="actions">
+        <button class="act" id="pushBtn"><span class="ai">◉</span><span id="pushBtnText">Enable on this iPhone</span></button>
+        <button class="act" id="pushTest"><span class="ai">✦</span>Send test</button>
+      </div>
+    </div>
+    <div class="panel" data-info="rules">
+      <div class="ph"><span>ALERT RULES</span></div>
+      <div id="rules"></div>
+    </div>
+    <div class="panel" data-info="watchlist">
+      <div class="ph"><span>DEAL WATCHLIST</span></div>
+      <div class="list" id="watch"></div>
+      <div class="addrow">
+        <select id="watchModel" aria-label="Model"></select>
+        <input id="watchMax" type="number" inputmode="decimal" placeholder="$ max" aria-label="Max price">
+        <button class="btn go" id="watchAdd">ADD</button>
+      </div>
+    </div>
+    <div class="panel" data-info="quiet">
+      <div class="ph"><span>QUIET HOURS</span></div>
+      <label class="tog"><span>Silence non-critical alerts</span><input type="checkbox" id="quietOn"></label>
+      <div class="addrow"><span class="mini">From</span><select id="quietStart"></select><span class="mini">to</span><select id="quietEnd"></select></div>
+    </div>
+    <div class="panel" data-info="schedule">
+      <div class="ph"><span>SCHEDULE</span></div>
+      <div class="prow"><span>Device scan every</span><input type="number" id="sch_net_scan_min" min="2"><span class="mini">min</span></div>
+      <div class="prow"><span>Speed test every</span><input type="number" id="sch_speedtest_hours" min="1"><span class="mini">h</span></div>
+      <div class="prow"><span>Drive health every</span><input type="number" id="sch_smart_min" min="5"><span class="mini">min</span></div>
+    </div>
+    <div class="panel" data-info="history">
+      <div class="ph"><span>HISTORY</span><button class="btn" id="alertsClear">CLEAR</button></div>
+      <div class="list" id="alertHist"></div>
     </div>
   </section>
 
@@ -129,6 +222,11 @@
       <div class="ph"><span>LINKS</span></div>
       <div class="links" id="links"></div>
     </div>
+    <div class="panel" data-info="logs">
+      <div class="ph"><span>LIVE LOGS</span><button class="btn" id="logFollow">FOLLOW</button></div>
+      <div class="addrow"><select id="logSrc" aria-label="Log source"></select><button class="btn go" id="logLoad">LOAD</button></div>
+      <pre class="logs" id="logOut">Pick a service or container.</pre>
+    </div>
     <div class="panel danger" data-info="power">
       <div class="ph"><span>POWER</span></div>
       <button class="hold" id="rebootBtn"><span class="fill"></span><span class="txt">HOLD TO REBOOT</span></button>
@@ -154,6 +252,12 @@
       <div class="ph"><span>PANELS</span></div>
       <div id="panelToggles"></div>
     </div>
+    <div class="panel" data-info="faceid">
+      <div class="ph"><span>FACE ID</span><span class="badge" id="faceState">--</span></div>
+      <div class="note" id="faceNote"></div>
+      <label class="tog"><span>Require for reboot, stop, go public, update</span><input type="checkbox" id="faceId"></label>
+      <div class="actions"><button class="act" id="faceEnroll"><span class="ai">◎</span>Set up Face ID</button><button class="act" id="faceRemove"><span class="ai">✕</span>Remove</button></div>
+    </div>
     <div class="panel" data-info="identity">
       <div class="ph"><span>IDENTITY</span></div>
       <div class="mini" id="me">--</div>
@@ -164,7 +268,9 @@
 
 <nav class="tabs" aria-label="Sections">
   <button data-view="system" class="on"><span class="ti">◎</span>System</button>
+  <button data-view="network"><span class="ti">⌖</span>Network</button>
   <button data-view="market"><span class="ti">◆</span>Market</button>
+  <button data-view="alerts"><span class="ti">◉<i class="dotb" id="alertDot"></i></span>Alerts</button>
   <button data-view="control"><span class="ti">⌘</span>Control</button>
   <button data-view="settings"><span class="ti">⚙</span>Settings</button>
 </nav>

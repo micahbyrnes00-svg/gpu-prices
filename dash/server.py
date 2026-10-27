@@ -17,9 +17,10 @@ import time
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
 REPO = HERE.parent
 WEB = HERE / "web"
 STATE = Path(os.environ.get("DASH_STATE", Path.home() / ".config" / "picommand"))
@@ -31,9 +32,10 @@ ALLOWED_LOGIN = os.environ.get("ALLOWED_LOGIN", "")  # empty = allow any (local 
 UNITS = ["gpu-prices.timer", "pi-cloud-backup.timer", "tailscaled.service", "docker.service",
          "wayvnc.service", "fieldpi-scan.service", "fieldpi-web.service", "matrixvms.service",
          "shairport-sync.service", "cockpit.socket", "picommand.service"]
-DEFAULT_SETTINGS = {"accent": "cyan", "refresh": 2, "compact": False, "reduceMotion": False,
+DEFAULT_SETTINGS = {"accent": "cyan", "refresh": 2, "compact": False, "reduceMotion": False, "faceId": True,
                     "panels": {"system": True, "cores": True, "network": True, "market": True,
-                               "services": True, "containers": True, "jobs": True, "links": True}}
+                               "services": True, "containers": True, "jobs": True, "links": True,
+                               "disks": True, "money": True}}
 
 
 def sh(cmd, timeout=10):
@@ -287,6 +289,7 @@ def market():
     site = tcfg.SITE_URL
     rows = []
     deals = []
+    listings = []
     for r in reps:
         c = r["current"]
         if not c:
@@ -295,6 +298,9 @@ def market():
                      "median": c["median"], "chg7": r["chg_7d"], "chg30": r["chg_30d"],
                      "perGb": r.get("per_gb"), "spark": [p["median"] for p in r["series"][-30:]],
                      "url": f"{site}/{r['model']['id']}.html"})
+        for l in r["listings"]:
+            listings.append({"modelId": r["model"]["id"], "model": r["model"]["name"], "title": l["title"],
+                             "total": l["total"], "url": l["url"]})
         for d in r["deals"]:
             deals.append({"model": r["model"]["name"], "title": d["title"], "total": d["total"],
                           "under": round((1 - d["total"] / c["median"]) * 100), "url": d["url"]})
@@ -302,7 +308,8 @@ def market():
     return {"ready": True, "demo": bool(runs[2]), "lastRun": runs[1], "rows": rows,
             "gpu7": tstats.market_index(reps, "gpu", "chg_7d"), "ram7": tstats.market_index(reps, "ram", "chg_7d"),
             "gpu30": tstats.market_index(reps, "gpu", "chg_30d"), "ram30": tstats.market_index(reps, "ram", "chg_30d"),
-            "deals": deals[:8], "site": site}
+            "deals": deals[:8], "site": site, "allListings": listings,
+            "models": [{"id": m["id"], "name": m["name"]} for m in models]}
 
 
 def backups():
@@ -382,7 +389,7 @@ def save_settings(new):
         s["accent"] = new["accent"]
     if isinstance(new.get("refresh"), (int, float)) and 1 <= new["refresh"] <= 30:
         s["refresh"] = int(new["refresh"])
-    for k in ("compact", "reduceMotion"):
+    for k in ("compact", "reduceMotion", "faceId"):
         if isinstance(new.get(k), bool):
             s[k] = new[k]
     for k, v in (new.get("panels") or {}).items():
@@ -393,7 +400,43 @@ def save_settings(new):
 
 
 # ---------------------------------------------------------------- http
+import analytics  # noqa: E402
+import disks  # noqa: E402
+import monitor  # noqa: E402
+import netradar  # noqa: E402
+import store  # noqa: E402
+import webauthn  # noqa: E402
+import webpush  # noqa: E402
+
 SAMPLER = Sampler()
+WATCHER = monitor.Watcher(SAMPLER, status)
+LOG_UNITS = [u for u in UNITS] + ["gpu-prices.service", "pi-cloud-backup.service", "picommand.service"]
+GATED = {"reboot", "stop", "funnel_on", "funnel_off", "update_app"}
+
+
+def needs_unlock(action):
+    return bool(webauthn.credential_ids()) and load_settings().get("faceId", True) and action in GATED
+
+
+def logs(q):
+    n = max(20, min(int((q.get("n") or ["200"])[0]), 1000))
+    unit = (q.get("unit") or [""])[0]
+    ctr = (q.get("container") or [""])[0]
+    if unit:
+        if unit not in LOG_UNITS:
+            return 400, "unit not allowed"
+        _, out = sh(["journalctl", "-u", unit, "-n", str(n), "--no-pager", "-o", "short-iso"], 15)
+    elif ctr:
+        if ctr not in {c["name"] for c in containers()}:
+            return 400, "unknown container"
+        _, out = sh(["docker", "logs", "--tail", str(n), "--timestamps", ctr], 15)
+    else:
+        return 400, "pick a unit or container"
+    return 200, out[-200000:]
+
+
+def bg(fn):
+    threading.Thread(target=fn, daemon=True).start()
 TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css",
          ".json": "application/json", ".webmanifest": "application/manifest+json",
          ".svg": "image/svg+xml", ".png": "image/png"}
@@ -409,6 +452,9 @@ class Handler(BaseHTTPRequestHandler):
         if not ALLOWED_LOGIN:
             return True
         return self.headers.get("Tailscale-User-Login", "").lower() == ALLOWED_LOGIN.lower()
+
+    def _host(self):
+        return self.headers.get("Host", "localhost")
 
     def _json(self, code, obj):
         body = json.dumps(obj).encode()
@@ -431,6 +477,23 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, status())
         if path == "/api/settings":
             return self._json(200, load_settings())
+        qs = parse_qs(urlparse(self.path).query)
+        if path == "/api/alerts":
+            return self._json(200, {"config": monitor.config(), "history": monitor.history(),
+                                    "subs": len(store.q("SELECT endpoint FROM subs")),
+                                    "vapid": webpush.vapid_keys()[1], "passkeys": webauthn.enrolled()})
+        if path == "/api/network":
+            return self._json(200, {**netradar.summary(), "devices": netradar.devices()})
+        if path == "/api/money":
+            return self._json(200, analytics.summary(urlparse(load_settings().get("siteUrl", "")).netloc))
+        if path == "/api/disks":
+            return self._json(200, disks.cached())
+        if path == "/api/logs":
+            code, out = logs(qs)
+            return self._json(code, {"text": out} if code == 200 else {"error": out})
+        if path == "/api/auth/options":
+            return self._json(200, {"challenge": webauthn.new_challenge(), "rpId": self._host().split(":")[0],
+                                    "credentials": webauthn.credential_ids()})
         if path == "/api/me":
             return self._json(200, {"login": self.headers.get("Tailscale-User-Login", "local"),
                                     "name": self.headers.get("Tailscale-User-Name", "")})
@@ -452,15 +515,80 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(400, {"error": "missing header"})
         n = int(self.headers.get("Content-Length", "0") or 0)
         try:
-            body = json.loads(self.rfile.read(min(n, 10000)) or b"{}")
+            body = json.loads(self.rfile.read(min(n, 3_000_000)) or b"{}")
         except ValueError:
             return self._json(400, {"error": "bad json"})
         path = urlparse(self.path).path
         if path == "/api/action":
+            if needs_unlock(body.get("action")) and not webauthn.unlocked(self.headers.get("X-Unlock")):
+                return self._json(401, {"ok": False, "needFaceId": True, "message": "Confirm with Face ID"})
             code, msg = act(body)
             return self._json(code, {"ok": code == 200, "message": msg})
         if path == "/api/settings":
             return self._json(200, save_settings(body))
+        if path == "/api/alerts/config":
+            return self._json(200, monitor.save_config(body))
+        if path == "/api/push/subscribe":
+            k = body.get("keys") or {}
+            if not (body.get("endpoint", "").startswith("https://") and k.get("p256dh") and k.get("auth")):
+                return self._json(400, {"error": "bad subscription"})
+            store.x("INSERT OR REPLACE INTO subs VALUES (?,?,?,?,?)",
+                    (body["endpoint"], k["p256dh"], k["auth"], self.headers.get("User-Agent", "")[:120], time.time()))
+            return self._json(200, {"ok": True})
+        if path == "/api/push/unsubscribe":
+            store.x("DELETE FROM subs WHERE endpoint=?", (body.get("endpoint", ""),))
+            return self._json(200, {"ok": True})
+        if path == "/api/push/test":
+            res = webpush.broadcast("Orbit test", "Push notifications are working.", "/#alerts", "info", tag="test")
+            monitor.store.x("INSERT INTO alerts (ts, rule, level, title, body, url, pushed) VALUES (?,?,?,?,?,?,?)",
+                            (time.time(), "test", "info", "Orbit test", "Push notifications are working.", "/#alerts",
+                             sum(1 for r in res if r in (200, 201))))
+            return self._json(200, {"ok": any(r in (200, 201) for r in res), "results": res})
+        if path == "/api/alerts/clear":
+            store.x("DELETE FROM alerts")
+            return self._json(200, {"ok": True})
+        if path == "/api/network/device":
+            store.x("UPDATE devices SET name=COALESCE(?,name), trusted=COALESCE(?,trusted) WHERE mac=?",
+                    (body.get("name"), (1 if body["trusted"] else 0) if "trusted" in body else None, body.get("mac")))
+            return self._json(200, {"ok": True})
+        if path == "/api/network/forget":
+            store.x("DELETE FROM devices WHERE mac=?", (body.get("mac"),))
+            return self._json(200, {"ok": True})
+        if path == "/api/network/scan":
+            bg(netradar.scan)
+            return self._json(200, {"ok": True, "message": "Scanning your network…"})
+        if path == "/api/network/speedtest":
+            bg(netradar.speedtest)
+            return self._json(200, {"ok": True, "message": "Speed test running (about 30 s)…"})
+        if path == "/api/disks/refresh":
+            bg(disks.read_all)
+            return self._json(200, {"ok": True})
+        if path == "/api/money/import":
+            try:
+                rows, amt = analytics.import_tdr(body.get("csv", ""))
+            except ValueError as e:
+                return self._json(400, {"ok": False, "message": str(e)})
+            if amt > 0:
+                monitor.fire("money", f"You made ${amt:.2f}", f"{rows} new commission{'s' if rows != 1 else ''} from eBay Partner Network.",
+                             url="/#market", key=f"money-{time.time()}", cooldown=0)
+            return self._json(200, {"ok": True, "message": f"Imported {rows} new rows, ${amt:.2f}"})
+        if path == "/api/auth/register":
+            try:
+                webauthn.register(body, self._host().split(":")[0], "https://" + self._host())
+                return self._json(200, {"ok": True})
+            except (ValueError, KeyError) as e:
+                return self._json(400, {"ok": False, "message": str(e)})
+        if path == "/api/auth/verify":
+            try:
+                token = webauthn.verify(body, self._host().split(":")[0], "https://" + self._host())
+                return self._json(200, {"ok": True, "token": token, "seconds": webauthn.UNLOCK_SECONDS})
+            except (ValueError, KeyError) as e:
+                return self._json(400, {"ok": False, "message": str(e)})
+        if path == "/api/auth/remove":
+            if webauthn.credential_ids() and not webauthn.unlocked(self.headers.get("X-Unlock")):
+                return self._json(401, {"ok": False, "needFaceId": True})
+            store.x("DELETE FROM passkeys")
+            return self._json(200, {"ok": True})
         return self._json(404, {"error": "not found"})
 
     def _stream(self):

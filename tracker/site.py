@@ -98,7 +98,8 @@ def page(title, desc, body, path, demo=False, jsonld=None):
 <main class="wrap">{body}</main>
 <footer class="wrap">Prices are eBay US fixed-price listings, including shipping, updated automatically.
 As an eBay Partner Network affiliate, this site may earn a commission from qualifying purchases made through its links.
-<a href="about.html">How prices are calculated</a>.</footer></body></html>"""
+<a href="about.html">How prices are calculated</a>.</footer>
+<script>document.addEventListener("click",function(e){{var a=e.target.closest&&e.target.closest("a[data-m]");if(a&&navigator.sendBeacon)navigator.sendBeacon("/c?m="+encodeURIComponent(a.dataset.m))}});</script></body></html>"""
 
 
 def model_page(rep, summary, demo):
@@ -123,7 +124,7 @@ def model_page(rep, summary, demo):
         tag = ' <span class="deal">Deal</span>' if is_deal else ""
         rows += (f"<tr><td>{E(l['title'][:90])}{tag}</td><td>{money(l['total'], 2)}</td>"
                  f"<td class='hide-sm'>{l['seller_pct'] or 0:.1f}%</td>"
-                 f'<td><a class="btn" href="{E(l["url"] or "#")}" rel="sponsored nofollow noopener" target="_blank">View</a></td></tr>')
+                 f'<td><a class="btn" data-m="{E(rep["model"]["id"])}" href="{E(l["url"] or "#")}" rel="sponsored nofollow noopener" target="_blank">View</a></td></tr>')
     listings = (f'<div class="scroll"><table class="tbl"><tr><th>Listing</th><th>Total</th><th class="hide-sm">Seller</th><th></th></tr>{rows}</table></div>'
                 if rows else '<p class="sub">No listings from well-rated sellers right now.</p>')
     buy_under = money(cur["p25"])
@@ -171,7 +172,7 @@ def index_page(reports, market, summary, demo):
     deal_rows = "".join(
         f'<tr><td><a href="{d["model"]["id"]}.html">{E(d["model"]["name"])}</a><br><span class="k">{E(d["title"][:70])}</span></td>'
         f"<td>{money(d['total'], 2)}</td><td class='deal'>{(1 - d['total'] / d['median']) * 100:.0f}% under</td>"
-        f'<td><a class="btn" href="{E(d["url"] or "#")}" rel="sponsored nofollow noopener" target="_blank">View</a></td></tr>'
+        f'<td><a class="btn" data-m="{E(d["model"]["id"])}" href="{E(d["url"] or "#")}" rel="sponsored nofollow noopener" target="_blank">View</a></td></tr>'
         for d in deals)
     deals_html = (f'<div class="scroll"><table class="tbl"><tr><th>Deal</th><th>Total</th><th>vs typical</th><th></th></tr>{deal_rows}</table></div>'
                   if deal_rows else '<p class="sub">No standout deals right now.</p>')

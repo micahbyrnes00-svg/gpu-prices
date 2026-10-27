@@ -69,9 +69,11 @@ EOF
 web)  # serve the real site (/home/pi/site) if built, else the demo; localhost only when public via Funnel
   src=/home/pi/site; [ -f $src/index.html ] || src=/home/pi/gpu-prices/demo-site
   bind=${2:-0.0.0.0}
+  mkdir -p /home/pi/site-logs
   docker rm -f gpu-prices-web >/dev/null 2>&1
   docker run -d --name gpu-prices-web --restart unless-stopped -p $bind:8088:80 \
-    -v $src:/usr/share/caddy:ro caddy:2-alpine >/dev/null && echo "Serving $src on $bind:8088"
+    -v $src:/usr/share/caddy:ro -v /home/pi/gpu-prices/deploy/Caddyfile:/etc/caddy/Caddyfile:ro \
+    -v /home/pi/site-logs:/logs caddy:2-alpine >/dev/null && echo "Serving $src on $bind:8088 (access log: /home/pi/site-logs)"
   ;;
 prep)  # everything that doesn't need eBay keys
   bash "$0" setenv PUBLISH pi >/dev/null; bash "$0" setenv SITE_DIR /home/pi/site >/dev/null
@@ -254,12 +256,14 @@ dashinstall)  # Pi Command iPhone app: service + limited sudo rules + private HT
     echo "pi ALL=(root) NOPASSWD: /usr/bin/systemctl reboot"
     echo "pi ALL=(root) NOPASSWD: /usr/bin/tailscale funnel --bg 8088"
     echo "pi ALL=(root) NOPASSWD: /usr/bin/tailscale funnel --https=443 off"
+    echo "pi ALL=(root) NOPASSWD: /usr/sbin/smartctl -a -j -d sat /dev/sd[a-z]"
   } > "$tmp"
   sudo visudo -cf "$tmp" >/dev/null && sudo install -m 440 -o root -g root "$tmp" /etc/sudoers.d/picommand || { echo "sudoers check failed"; exit 1; }
   rm -f "$tmp"
   printf '%s\n' "[Unit]" "Description=Pi Command dashboard (iPhone app backend)" \
     "After=network-online.target tailscaled.service" "Wants=network-online.target" "[Service]" "User=pi" \
     "WorkingDirectory=/home/pi/gpu-prices" "Environment=ALLOWED_LOGIN=$login" \
+    "Environment=PUSH_CONTACT=mailto:$login" "Environment=SITE_LOG=/home/pi/site-logs/access.log" \
     "Environment=PATH=/home/pi/.local/bin:/usr/local/bin:/usr/bin:/bin" \
     "ExecStart=/usr/bin/python3 /home/pi/gpu-prices/dash/server.py" "Restart=always" "RestartSec=3" \
     "[Install]" "WantedBy=multi-user.target" | sudo tee /etc/systemd/system/picommand.service >/dev/null
@@ -268,6 +272,29 @@ dashinstall)  # Pi Command iPhone app: service + limited sudo rules + private HT
   dns=$(tailscale status --json | python3 -c 'import json,sys;print(json.load(sys.stdin)["Self"]["DNSName"].rstrip("."))')
   sleep 2; systemctl is-active picommand.service
   echo "Pi Command: https://$dns:8443  (only $login)"
+  ;;
+lockdown)  # admin tools (Portainer, Cockpit, Glances, raw site port) reachable only over Tailscale, not the LAN
+  printf '%s\n' '#!/bin/sh' 'for i in eth0 wlan0; do' \
+    ' for p in 9443 8088 61208; do' \
+    '  iptables -C DOCKER-USER -i $i -p tcp -m conntrack --ctorigdstport $p -j DROP 2>/dev/null || iptables -I DOCKER-USER -i $i -p tcp -m conntrack --ctorigdstport $p -j DROP 2>/dev/null' \
+    ' done' \
+    ' for p in 9090 9443 61208; do' \
+    '  iptables -C INPUT -i $i -p tcp --dport $p -j DROP 2>/dev/null || iptables -I INPUT -i $i -p tcp --dport $p -j DROP' \
+    ' done' 'done' 'exit 0' | sudo tee /usr/local/sbin/orbit-lockdown >/dev/null
+  sudo chmod 755 /usr/local/sbin/orbit-lockdown
+  printf '%s\n' "[Unit]" "Description=Orbit: block admin ports from the LAN (Tailscale only)" "After=docker.service network-online.target" \
+    "Wants=docker.service" "[Service]" "Type=oneshot" "RemainAfterExit=yes" "ExecStart=/usr/local/sbin/orbit-lockdown" \
+    "[Install]" "WantedBy=multi-user.target" | sudo tee /etc/systemd/system/orbit-lockdown.service >/dev/null
+  sudo systemctl daemon-reload && sudo systemctl enable orbit-lockdown.service >/dev/null 2>&1 && sudo systemctl restart orbit-lockdown.service
+  echo "LAN blocked: 9090 9443 8088 61208 (Tailscale and localhost unaffected)"
+  ;;
+orbitupgrade)  # Orbit v3: push, network radar, drive health, money panel, logs, Face ID, LAN lockdown
+  sudo apt-get install -y -qq python3-cryptography smartmontools ieee-data >/dev/null && echo "packages ok"
+  bind=$(docker port gpu-prices-web 80/tcp 2>/dev/null | head -1 | cut -d: -f1); [ -n "$bind" ] || bind=0.0.0.0
+  bash "$0" web "$bind"
+  bash "$0" lockdown
+  bash "$0" dashinstall
+  sleep 3; curl -s -o /dev/null -w "app api: %{http_code} (403 = locked to your login)\n" http://127.0.0.1:8099/api/alerts
   ;;
 dashtest)  # check the app backend answers (with and without your identity header)
   login=$(systemctl show picommand.service -p Environment --value | tr ' ' '\n' | sed -n 's/^ALLOWED_LOGIN=//p')
