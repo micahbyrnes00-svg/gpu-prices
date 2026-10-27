@@ -298,6 +298,31 @@ mtutest)  # does the direct path to the phone carry big packets? (TLS needs ~120
   done
   ip -br link | grep -E "eth|wlan|tailscale"
   ;;
+dnstest)  # what does the name resolve to via MagicDNS, your router, and public DNS?
+  dns=$(tailscale status --json | python3 -c 'import json,sys;print(json.load(sys.stdin)["Self"]["DNSName"].rstrip("."))')
+  q() { python3 - "$1" "$2" <<'PY'
+import socket,struct,sys,random
+name,server=sys.argv[1],sys.argv[2]
+tid=random.randint(0,65535)
+pkt=struct.pack(">HHHHHH",tid,0x0100,1,0,0,0)+b"".join(bytes([len(p)])+p.encode() for p in name.split("."))+b"\0"+struct.pack(">HH",1,1)
+s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.settimeout(3)
+try:
+    s.sendto(pkt,(server,53)); d,_=s.recvfrom(2048)
+    an=struct.unpack(">H",d[6:8])[0]; i=12
+    while d[i]: i+=d[i]+1
+    i+=5; ips=[]
+    for _ in range(an):
+        i+= 2 if d[i]&0xC0==0xC0 else 0
+        t,c,ttl,l=struct.unpack(">HHIH",d[i:i+10]); i+=10
+        if t==1: ips.append(".".join(map(str,d[i:i+4])))
+        i+=l
+    print(server, "->", ips or "no A record")
+except Exception as e: print(server, "->", e)
+PY
+  }
+  echo "name: $dns"
+  q "$dns" 100.100.100.100; q "$dns" 192.168.1.1; q "$dns" 1.1.1.1; q "$dns" 8.8.8.8
+  ;;
 stats)  # health snapshot
   echo "== $(hostname)  $(cat /proc/device-tree/model 2>/dev/null | tr -d '\0')"
   uptime -p; echo "load: $(cut -d' ' -f1-3 /proc/loadavg)  cores: $(nproc)"
