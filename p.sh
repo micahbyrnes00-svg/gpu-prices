@@ -272,12 +272,7 @@ dashinstall)  # Pi Command iPhone app: service + limited sudo rules + private HT
 dashtest)  # check the app backend answers (with and without your identity header)
   login=$(systemctl show picommand.service -p Environment --value | tr ' ' '\n' | sed -n 's/^ALLOWED_LOGIN=//p')
   echo "no identity -> $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8099/api/live) (expect 403)"
-  curl -s -H "Tailscale-User-Login: $login" http://127.0.0.1:8099/api/status | python3 -c '
-import json,sys; d=json.load(sys.stdin)
-print("services:", ", ".join(f"{s[\"unit\"]}={s[\"active\"]}" for s in d["services"]))
-print("containers:", ", ".join(f"{c[\"name\"]}={c[\"state\"]}" for c in d["containers"]))
-print("timers:", d["timers"]); print("tailscale:", d["tailscale"].get("dns"), "funnel", d["tailscale"].get("funnel"))
-print("market:", {k:v for k,v in d["market"].items() if k not in ("rows","deals")}); print("backups:", str(d["backups"])[:300])'
+  python3 dash/selftest.py "$login"
   for a in "restart wayvnc.service" "start --no-block gpu-prices.service"; do sudo -n -l /usr/bin/systemctl $a >/dev/null && echo "sudo rule ok: $a"; done
   ;;
 stats)  # health snapshot
