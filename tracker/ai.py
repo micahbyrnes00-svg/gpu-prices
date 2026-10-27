@@ -44,6 +44,11 @@ def _facts(rep: dict) -> dict:
     }
 
 
+def _same(basis, median, tol=0.05) -> bool:
+    """True if the cached summary was written from about the same price (within 5%)."""
+    return bool(basis and median) and abs(median - basis) / basis <= tol
+
+
 RULES = ("Write 2-3 plain sentences for a price-tracker website. Use only the numbers given; do not invent facts, "
          "news, or reasons. No hype, no emojis, no headings. Say whether now looks like a good time to buy used, "
          "based only on the trend and range.")
@@ -58,16 +63,19 @@ def refresh(con, reports: list[dict], force: bool = False) -> dict:
     for rep in reports:
         mid = rep["model"]["id"]
         old = existing.get(mid)
-        if old and old["day"] > cutoff and not force:
+        if old and old["day"] > cutoff and not force and _same(old.get("basis"), (rep["current"] or {}).get("median")):
             out[mid] = old["text"]
             continue
         if not rep["current"]:
             continue
         text = _ask(f"{RULES}\n\nData:\n{json.dumps(_facts(rep))}") or _template(rep)
-        con.execute("INSERT OR REPLACE INTO summaries VALUES (?,?,?)", (mid, today, text))
+        con.execute("INSERT OR REPLACE INTO summaries (model_id, day, text, basis) VALUES (?,?,?,?)",
+                    (mid, today, text, rep["current"]["median"]))
         out[mid] = text
     old = existing.get("_market")
-    if old and old["day"] > cutoff and not force:
+    meds = [r["current"]["median"] for r in reports if r["current"]]
+    level = sum(meds) / len(meds) if meds else None
+    if old and old["day"] > cutoff and not force and _same(old.get("basis"), level):
         out["_market"] = old["text"]
     else:
         facts = [_facts(r) for r in reports if r["current"]]
@@ -75,7 +83,8 @@ def refresh(con, reports: list[dict], force: bool = False) -> dict:
         text = _ask("Write a 3-4 sentence weekly used tech market report (graphics cards, CPUs, RAM, SSDs, monitors, consoles, iPhones) for a price-tracker homepage. "
                     "Name the biggest movers. " + RULES + f"\n\nData:\n{json.dumps(slim)}")
         if text:
-            con.execute("INSERT OR REPLACE INTO summaries VALUES (?,?,?)", ("_market", today, text))
+            con.execute("INSERT OR REPLACE INTO summaries (model_id, day, text, basis) VALUES (?,?,?,?)",
+                        ("_market", today, text, level))
             out["_market"] = text
     con.commit()
     return out

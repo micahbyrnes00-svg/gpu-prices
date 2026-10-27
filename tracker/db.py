@@ -39,4 +39,7 @@ def connect() -> sqlite3.Connection:
     con = sqlite3.connect(config.DB_PATH)
     con.row_factory = sqlite3.Row
     con.executescript(SCHEMA)
+    cols = {r[1] for r in con.execute("PRAGMA table_info(summaries)")}
+    if "basis" not in cols:  # price the summary was written from; a big move forces a rewrite
+        con.execute("ALTER TABLE summaries ADD COLUMN basis REAL")
     return con
