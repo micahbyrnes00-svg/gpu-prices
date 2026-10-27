@@ -291,6 +291,13 @@ netfix)  # Pi is on Ethernet AND Wi-Fi in the same subnet: stop each NIC answeri
   sudo sysctl -q -p /etc/sysctl.d/90-dual-nic.conf && echo "applied"
   ip -4 -br addr | grep -E 'eth|wlan'; ip route | grep default
   ;;
+mtutest)  # does the direct path to the phone carry big packets? (TLS needs ~1200+ byte packets)
+  peer=${2:-iphone-14-pro-max}
+  for sz in 100 800 1100 1200 1260; do
+    printf "size %-5s " $sz; tailscale ping -c 3 --timeout 3s --size $sz "$peer" 2>&1 | grep -E "pong|timeout|no reply" | tail -1
+  done
+  ip -br link | grep -E "eth|wlan|tailscale"
+  ;;
 stats)  # health snapshot
   echo "== $(hostname)  $(cat /proc/device-tree/model 2>/dev/null | tr -d '\0')"
   uptime -p; echo "load: $(cut -d' ' -f1-3 /proc/loadavg)  cores: $(nproc)"
