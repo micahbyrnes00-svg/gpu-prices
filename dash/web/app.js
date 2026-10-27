@@ -178,6 +178,7 @@ function renderControl(s) {
   $("#timers").innerHTML = (s.timers || []).map(t => `<div class="row"><div class="main"><div class="name">${esc(t.unit.replace(".timer", ""))}</div><div class="meta">last ${ago(t.last)}</div></div><div class="num">${t.next ? ago(t.next) : "off"}<div class="meta">next run</div></div></div>`).join("") || '<div class="note">Timers appear after go-live.</div>';
   const b = s.backups || {};
   $("#backups").innerHTML = !b.configured ? '<div class="note">Cloud backup not configured.</div>' :
+    b.loading ? '<div class="note">Reading backup list from Google Drive…</div>' :
     b.error ? `<div class="note">Backup list: ${esc(b.error)}</div>` :
     (b.running ? '<div class="row"><div class="main"><div class="name">Backup uploading…</div></div><span class="badge on">LIVE</span></div>' : "") +
     (b.files || []).filter(f => !f.name.includes("-boot")).slice(0, 4).map(f => `<div class="row"><div class="main"><div class="name">${esc(f.name)}</div><div class="meta">${esc(f.time.slice(0, 16).replace("T", " "))} · encrypted on Google Drive</div></div><div class="num">${fmtB(f.size)}</div></div>`).join("");

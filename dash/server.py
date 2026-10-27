@@ -178,6 +178,26 @@ class Sampler:
 _cache = {}
 
 
+_bg = {}
+
+
+def cached_bg(key, ttl, fn, placeholder):
+    """Slow lookups (cloud listing) refresh in a background thread; callers never wait."""
+    hit = _cache.get(key)
+    stale = not hit or time.time() - hit[0] > ttl
+    if stale and not _bg.get(key):
+        def run():
+            try:
+                val = fn()
+            except Exception as e:  # noqa: BLE001
+                val = {"error": str(e)}
+            _cache[key] = (time.time(), val)
+            _bg[key] = False
+        _bg[key] = True
+        threading.Thread(target=run, daemon=True).start()
+    return hit[1] if hit else placeholder
+
+
 def cached(key, ttl, fn):
     hit = _cache.get(key)
     if hit and time.time() - hit[0] < ttl:
@@ -239,7 +259,7 @@ def tailscale():
         return {}
     s = json.loads(out)
     self_ = s.get("Self", {})
-    peers = [{"name": p.get("HostName"), "online": p.get("Online"), "os": p.get("OS")}
+    peers = [{"name": (p.get("DNSName") or p.get("HostName") or "").split(".")[0], "online": p.get("Online"), "os": p.get("OS")}
              for p in (s.get("Peer") or {}).values()]
     _, fun = sh(["tailscale", "funnel", "status", "--json"], 5)
     funnel_on = False
@@ -289,7 +309,7 @@ def backups():
     conf = Path.home() / ".config" / "rclone" / "rclone.conf"
     if not conf.exists() or not shutil.which("rclone"):
         return {"configured": False}
-    code, out = sh(["rclone", "--config", str(conf), "lsjson", "gcrypt:"], 40)
+    code, out = sh(["rclone", "--config", str(conf), "lsjson", "gcrypt:"], 180)
     if code:
         return {"configured": True, "error": out.strip()[-200:]}
     files = [f for f in json.loads(out) if not f.get("IsDir")]
@@ -306,7 +326,7 @@ def status():
         "containers": cached("containers", 5, containers),
         "tailscale": cached("tailscale", 15, tailscale),
         "market": cached("market", 120, market),
-        "backups": cached("backups", 600, backups),
+        "backups": cached_bg("backups", 600, backups, {"configured": True, "loading": True}),
     }
 
 
@@ -343,7 +363,8 @@ def act(body):
         code, out = 0, "rebooting"
     else:
         return 400, "unknown action"
-    _cache.clear()
+    for k in ("services", "containers", "timers", "tailscale"):
+        _cache.pop(k, None)
     return (200 if code == 0 else 500), out.strip()[-400:] or "ok"
 
 
