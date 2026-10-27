@@ -132,12 +132,18 @@
       </div>
     </div>
     <div class="panel" data-panel="money" data-info="money">
-      <div class="ph"><span>MONEY</span><a class="mini" href="https://partnernetwork.ebay.com/" target="_blank" rel="noopener">EPN ↗</a></div>
+      <div class="ph"><span>MONEY</span><span class="mini"><a href="https://partnernetwork.ebay.com/" target="_blank" rel="noopener">EPN ↗</a> · <a href="https://affiliate-program.amazon.com/home" target="_blank" rel="noopener">Amazon ↗</a></span></div>
       <div class="stats3">
         <div><div class="k">EARNED</div><div class="v" id="earnTot">--</div></div>
         <div><div class="k">30 DAYS</div><div class="v" id="earn30">--</div></div>
         <div><div class="k">CLICKS 7D</div><div class="v" id="clicks7">--</div></div>
       </div>
+      <div class="stats3">
+        <div><div class="k">EBAY</div><div class="v" id="earnEbay">--</div></div>
+        <div><div class="k">AMAZON</div><div class="v" id="earnAmz">--</div></div>
+        <div><div class="k">AMZ CLICKS 7D</div><div class="v" id="amzClicks">--</div></div>
+      </div>
+      <div class="amz" id="amzStatus"></div>
       <div class="stats3">
         <div><div class="k">VISITORS 24H</div><div class="v" id="vis24">--</div></div>
         <div><div class="k">VISITORS 7D</div><div class="v" id="vis7">--</div></div>
@@ -149,7 +155,7 @@
       <div class="sub2">REFERRERS</div><div class="list" id="topRefs"></div>
       <div class="sub2">MOST CLICKED</div><div class="list" id="topClicked"></div>
       <div class="sub2">RECENT COMMISSIONS</div><div class="list" id="earnRecent"></div>
-      <label class="btn wide filebtn">IMPORT EPN REPORT (CSV)<input type="file" id="tdrFile" accept=".csv,text/csv"></label>
+      <label class="btn wide filebtn">IMPORT EARNINGS REPORT (EBAY OR AMAZON)<input type="file" id="tdrFile" accept=".csv,.tsv,text/csv,text/tab-separated-values"></label>
     </div>
     <div class="panel" data-panel="market" data-info="deals">
       <div class="ph"><span>LIVE DEALS</span><span class="mini">≥15% under typical</span></div>

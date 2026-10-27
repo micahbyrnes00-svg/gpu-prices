@@ -136,7 +136,7 @@ def model_page(rep, summary, demo):
     fair = f"{money(cur['p25'])}–{money(cur['p75'])}"
     unit, per = per_unit(rep)
     per_gb = f'<div class="card"><div class="k">Price per {unit}</div><div class="v">{money(per, 2)}</div></div>' if per else ""
-    amazon = (f'<a class="btn alt" href="{E(amazon_url(m))}" rel="sponsored nofollow noopener" target="_blank">Compare new on Amazon</a> '
+    amazon = (f'<a class="btn alt" data-m="amz:{E(m["id"])}" href="{E(amazon_url(m))}" rel="sponsored nofollow noopener" target="_blank">Compare new on Amazon</a> '
               if config.AMAZON_TAG else "")
     actions = f'<p>{amazon}<a class="btn alt" href="check.html?m={E(m["id"])}">Is my price good?</a></p>'
     cards = f"""<div class="cards">

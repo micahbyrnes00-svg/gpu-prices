@@ -26,6 +26,7 @@ RULES = {
     "prices":    ("Price update failed", "warning", True, {}, "The 6-hour price update job failed."),
     "deal":      ("Watchlist deal", "info", True, {}, "A listing hits a target price on your watchlist."),
     "money":     ("Money made", "info", True, {}, "New affiliate commission imported from eBay Partner Network."),
+    "amazon":    ("Amazon deadline", "warning", True, {}, "Reminders at 60, 30 and 7 days left if Amazon Associates still needs its 3 qualifying sales."),
     "click":     ("Affiliate click", "info", False, {}, "Someone clicked through to eBay from your site (can be chatty)."),
     "traffic":   ("Traffic spike", "info", True, {"visitors": 50}, "Unique site visitors in the last 24h reach the threshold."),
     "device":    ("New device on network", "warning", True, {}, "An unknown device joins your home network."),
@@ -140,7 +141,7 @@ class Watcher:
         time.sleep(15)
         while True:
             for job in (self._system, self._units, self._jobs, self._net, self._scan, self._smart,
-                        self._speed, self._traffic, self._deals, self._sites, self._security, self._buy, self._daily):
+                        self._speed, self._traffic, self._deals, self._sites, self._security, self._buy, self._amazon, self._daily):
                 try:
                     job()
                 except Exception:  # noqa: BLE001
@@ -358,6 +359,17 @@ class Watcher:
                 seen[r["id"]] = r.get("day")
                 fire("buy", f"Buy signal: {r['name']}", f"Typical used price ${r['median']:.0f}, the lowest in 90 days.",
                      url=r["url"], key="buy-" + r["id"], cooldown=0)
+
+    def _amazon(self):
+        a = analytics.amazon_status()
+        if a["daysLeft"] is None or a["sales"] >= 3:
+            return
+        for mark in (60, 30, 7):
+            if a["daysLeft"] <= mark and self.state.get("amz_mark", 999) > mark:
+                self.state["amz_mark"] = mark
+                fire("amazon", f"Amazon: {a['daysLeft']} days left", f"{a['sales']} of 3 qualifying sales so far. Without 3 sales by the deadline, Amazon closes the Associates account.",
+                     url="/#market", key=f"amz-{mark}", cooldown=0)
+                break
 
     def _daily(self):
         r = config()["rules"]["daily"]

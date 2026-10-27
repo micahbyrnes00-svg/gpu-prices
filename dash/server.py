@@ -619,13 +619,13 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, {"ok": True})
         if path == "/api/money/import":
             try:
-                rows, amt = analytics.import_tdr(body.get("csv", ""))
+                rows, amt, src = analytics.import_tdr(body.get("csv", ""))
             except ValueError as e:
                 return self._json(400, {"ok": False, "message": str(e)})
             if amt > 0:
-                monitor.fire("money", f"You made ${amt:.2f}", f"{rows} new commission{'s' if rows != 1 else ''} from eBay Partner Network.",
+                monitor.fire("money", f"You made ${amt:.2f}", f"{rows} new commission{'s' if rows != 1 else ''} from {'Amazon Associates' if src == 'amazon' else 'eBay Partner Network'}.",
                              url="/#market", key=f"money-{time.time()}", cooldown=0)
-            return self._json(200, {"ok": True, "message": f"Imported {rows} new rows, ${amt:.2f}"})
+            return self._json(200, {"ok": True, "message": f"{'Amazon' if src == 'amazon' else 'eBay'}: imported {rows} new rows, ${amt:.2f}"})
         if path == "/api/auth/register":
             try:
                 webauthn.register(body, self._host().split(":")[0], "https://" + self._host())

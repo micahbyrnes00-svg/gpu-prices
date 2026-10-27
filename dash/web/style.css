@@ -224,3 +224,9 @@ a.row{color:inherit}
 .kv .v{font-size:15px}
 button.row{width:100%;background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer;border-top:1px solid var(--line)}
 .list button.row:first-child{border-top:0}
+.amz{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:0 0 12px;background:rgba(255,153,0,.05)}
+.amz .t{font:600 13px system-ui;display:flex;justify-content:space-between;gap:8px}
+.amz .pips{display:flex;gap:6px;margin:8px 0 4px}.amz .pips i{flex:1;height:6px;border-radius:3px;background:rgba(120,160,220,.15)}
+.amz .pips i.on{background:#ff9900;box-shadow:0 0 8px rgba(255,153,0,.6)}
+.src{font:600 9px var(--mono);letter-spacing:.08em;padding:2px 5px;border-radius:5px;margin-right:6px;border:1px solid var(--line);color:var(--mute)}
+.src.amazon{color:#ff9900;border-color:rgba(255,153,0,.4)}

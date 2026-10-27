@@ -37,6 +37,11 @@ def connect():
 
 
 _con = connect()
+try:  # migration: earnings source (ebay / amazon)
+    _con.execute("ALTER TABLE earnings ADD COLUMN source TEXT DEFAULT 'ebay'")
+    _con.commit()
+except sqlite3.OperationalError:
+    pass
 
 
 def q(sql, args=()):

@@ -59,9 +59,11 @@ const INFO = {
   devices: ["Network radar", `<p>Every few minutes the Pi pings each address on the local network. It then reads the kernel's <b>ARP/neighbour table</b>, the list of IP addresses mapped to hardware <b>MAC addresses</b> for devices that answered.</p>
 <p>The manufacturer is looked up from the first half of the MAC address (the OUI, assigned by the IEEE). "Private address" means a phone or tablet using a randomized Wi-Fi MAC for privacy.</p>
 <p>Devices found on the first scan are marked trusted. Any new device after that is flagged and triggers an alert. Tap a name to rename it, ✓ to trust it, or ✕ to forget it. The radar only observes and doesn't block or change other devices.</p>`],
-  money: ["Money & traffic", `<p><b>Traffic</b> comes from the web server's access log, which records each page request. To count unique visitors without storing anyone's IP address, Orbit keeps only a one-way hash that changes daily. Known bots and crawlers are filtered out.</p>
-<p><b>Clicks:</b> when a visitor taps through to eBay, the site sends a tiny tracking request (<code>/c</code>), so you can see which products get interest.</p>
-<p><b>Earnings:</b> eBay Partner Network doesn't offer a live earnings feed, so earnings are imported. Download the <i>Transaction Detail Report</i> (CSV) from the EPN portal and tap Import. New commissions are added, duplicates are skipped, and a "Money made" notification is sent. EPN usually updates reports within a day.</p>`],
+  money: ["Money & traffic", `<p><b>Two income sources.</b> Every "View" button on the price site is an <b>eBay Partner Network</b> affiliate link, and every model page has a "Compare new on Amazon" button carrying your <b>Amazon Associates</b> tracking ID. When a visitor buys after clicking, that store pays a commission. The price is the same for the buyer.</p>
+<p><b>Traffic</b> comes from the web server's access log, which records each page request. To count unique visitors without storing anyone's IP address, Orbit keeps only a one-way hash that changes daily. Known bots and crawlers are filtered out.</p>
+<p><b>Clicks:</b> when a visitor taps an eBay or Amazon button, the site sends a tiny tracking request (<code>/c</code>), so you can see which products and which store get interest.</p>
+<p><b>Earnings:</b> neither program offers a live earnings feed, so reports are imported. For eBay, download the <i>Transaction Detail Report</i> from the EPN portal. For Amazon, open Associates Central → Reports, choose <i>Earnings</i> and download the CSV. Tap Import and pick either file: Orbit detects which store it came from, skips duplicates and sends a "Money made" notification.</p>
+<p><b>Amazon's 180-day rule:</b> a new Associates account must refer 3 qualifying sales within 180 days of signing up, or Amazon closes it. The orange bar tracks progress, and you get reminders at 60, 30 and 7 days left.</p>`],
   push: ["Push notifications", `<p>Orbit sends notifications with the <b>Web Push</b> standard. The phone registers with its platform's push service (Apple's, on iPhone), and the Pi sends each message there for delivery.</p>
 <p>Each message is encrypted with keys only the subscribed device holds, so the push service relays it without being able to read it. The Pi proves it's the sender with a signed <b>VAPID</b> key.</p>
 <p>On iPhone, push only works from the Home Screen app (iOS 16.4 or later). Open Orbit from its icon, tap Enable and allow notifications. Each device is subscribed separately, and expired subscriptions are removed automatically.</p>`],
@@ -239,6 +241,7 @@ function renderControl(s) {
     ["Cockpit", "Pi admin & terminal", `https://${ts.ip || host}:9090/`],
     ["GitHub repo", "gpu-prices code", "https://github.com/micahbyrnes00-svg/gpu-prices"],
     ["eBay Partner", "affiliate earnings", "https://partnernetwork.ebay.com/"],
+    ["Amazon Associates", "earnings & reports", "https://affiliate-program.amazon.com/home/reports"],
     ["eBay Developer", "API keys", "https://developer.ebay.com/my/keys"],
     ["Tailscale", "devices & Funnel", "https://login.tailscale.com/admin/machines"],
     ["Google Drive", "encrypted backups", "https://drive.google.com/drive/search?q=pi-backups"],
@@ -389,8 +392,14 @@ async function loadMoney() {
   const li = (rows, k, empty) => rows.length ? rows.map(r => `<div class="row"><div class="main"><div class="name">${esc(r[k] || "(direct)")}</div></div><div class="num">${r.n}</div></div>`).join("") : `<div class="meta">${empty}</div>`;
   $("#topPages").innerHTML = li(m.pages, "path", "No visits yet.");
   $("#topRefs").innerHTML = li(m.refs, "ref", "No referrers yet.");
-  $("#topClicked").innerHTML = li(m.clicked, "model", "No clicks yet.");
-  $("#earnRecent").innerHTML = m.earnings.recent.length ? m.earnings.recent.map(r => `<div class="row"><div class="main"><div class="name">${esc(r.item || "Commission")}</div><div class="meta">${when(r.ts)}</div></div><div class="num down">${usd(r.amount)}</div></div>`).join("") : `<div class="meta">No commissions imported yet.</div>`;
+  $("#topClicked").innerHTML = li(m.clicked.map(c => ({ ...c, model: c.model.startsWith("amz:") ? "Amazon · " + c.model.slice(4) : "eBay · " + (c.model || "listing") })), "model", "No clicks yet.");
+  $("#earnEbay").textContent = usd(m.earnings.ebay); $("#earnAmz").textContent = usd(m.earnings.amazon); $("#amzClicks").textContent = m.amazonClicks7 ?? 0;
+  const a = m.earnings.amazonStatus || {};
+  $("#amzStatus").innerHTML = !a.tag ? `<div class="t"><span>Amazon Associates</span><span class="mini">not connected</span></div>` :
+    `<div class="t"><span>Amazon Associates · ${esc(a.tag)}</span><span class="mini">${a.sales >= 3 ? "qualified" : a.daysLeft != null ? a.daysLeft + " days left" : ""}</span></div>
+     <div class="pips">${[0, 1, 2].map(i => `<i class="${i < a.sales ? "on" : ""}"></i>`).join("")}</div>
+     <div class="mini">${a.sales >= 3 ? "3 qualifying sales reached. Account stays open." : `${Math.min(a.sales, 3)} of 3 qualifying sales needed${a.deadline ? " by " + new Date(a.deadline * 1000).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" }) : ""}`}</div>`;
+  $("#earnRecent").innerHTML = m.earnings.recent.length ? m.earnings.recent.map(r => `<div class="row"><div class="main"><div class="name"><span class="src ${esc(r.source || "ebay")}">${r.source === "amazon" ? "AMZ" : "EBAY"}</span>${esc(r.item || "Commission")}</div><div class="meta">${when(r.ts)}</div></div><div class="num down">${usd(r.amount)}</div></div>`).join("") : `<div class="meta">No commissions imported yet.</div>`;
 }
 $("#tdrFile").addEventListener("change", async e => {
   const f = e.target.files[0]; if (!f) return;
