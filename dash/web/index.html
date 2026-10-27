@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pi Command">
+<meta name="theme-color" content="#05070c">
+<title>Pi Command</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon.svg">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="bg-grid" aria-hidden="true"></div>
+
+<header class="top">
+  <div class="brand">
+    <span class="logo" aria-hidden="true"></span>
+    <div>
+      <div class="title">PI&nbsp;COMMAND</div>
+      <div class="sub" id="host">connecting…</div>
+    </div>
+  </div>
+  <div class="topr"><button class="info big" data-info-btn="overview" aria-label="How it all fits together">i</button><div class="link-state" id="linkState"><span class="dot"></span><span id="linkText">LINK</span></div></div>
+</header>
+
+<main id="views">
+  <!-- SYSTEM -->
+  <section class="view active" id="view-system" aria-label="System">
+    <div class="panel hero" data-panel="system" data-info="cpu">
+      <div class="hero-ring">
+        <svg viewBox="0 0 200 200" class="ring big" aria-hidden="true">
+          <circle class="track" cx="100" cy="100" r="84"/>
+          <circle class="arc" id="cpuArc" cx="100" cy="100" r="84"/>
+          <circle class="tick" cx="100" cy="100" r="96"/>
+        </svg>
+        <div class="hero-val"><div class="hv"><span id="cpuVal">--</span><small>%</small></div><div class="lbl">CPU LOAD</div></div>
+      </div>
+      <div class="hero-stats">
+        <div class="stat"><div class="k">TEMP</div><div class="v" id="tempVal">--</div></div>
+        <div class="stat"><div class="k">CLOCK</div><div class="v" id="clockVal">--</div></div>
+        <div class="stat"><div class="k">POWER</div><div class="v" id="powerVal">--</div></div>
+        <div class="stat"><div class="k">UPTIME</div><div class="v" id="upVal">--</div></div>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="panel gauge" data-panel="system" data-info="mem">
+        <svg viewBox="0 0 120 120" class="ring" aria-hidden="true"><circle class="track" cx="60" cy="60" r="48"/><circle class="arc" id="memArc" cx="60" cy="60" r="48"/></svg>
+        <div class="gv"><span id="memVal">--</span><div class="lbl">MEMORY</div><div class="mini" id="memSub"></div></div>
+      </div>
+      <div class="panel gauge" data-panel="system" data-info="disk">
+        <svg viewBox="0 0 120 120" class="ring" aria-hidden="true"><circle class="track" cx="60" cy="60" r="48"/><circle class="arc" id="diskArc" cx="60" cy="60" r="48"/></svg>
+        <div class="gv"><span id="diskVal">--</span><div class="lbl">DISK /</div><div class="mini" id="diskSub"></div></div>
+      </div>
+    </div>
+
+    <div class="panel" data-panel="cores" data-info="cores">
+      <div class="ph"><span>CORES</span><span class="mini" id="loadVal">load --</span></div>
+      <div class="cores" id="cores"></div>
+      <canvas class="spark" id="cpuSpark" height="60" aria-label="CPU history"></canvas>
+    </div>
+
+    <div class="panel" data-panel="network" data-info="network">
+      <div class="ph"><span>NETWORK</span><span class="mini">eth + wifi</span></div>
+      <div class="netrow">
+        <div><div class="k">▼ DOWN</div><div class="v" id="rxVal">--</div></div>
+        <div><div class="k">▲ UP</div><div class="v" id="txVal">--</div></div>
+      </div>
+      <canvas class="spark" id="netSpark" height="60" aria-label="Network history"></canvas>
+    </div>
+
+    <div class="panel" data-panel="system" data-info="procs">
+      <div class="ph"><span>TOP PROCESSES</span></div>
+      <div class="list" id="procs"></div>
+    </div>
+  </section>
+
+  <!-- MARKET -->
+  <section class="view" id="view-market" aria-label="Market">
+    <div class="panel" data-panel="market" data-info="market">
+      <div class="ph"><span>USED MARKET</span><a class="mini" id="siteLink" target="_blank" rel="noopener">open site ↗</a></div>
+      <div id="marketNote" class="note"></div>
+      <div class="grid2" id="marketIdx">
+        <div class="idx"><div class="k">GPU · 7D</div><div class="v" id="gpu7">--</div><div class="mini" id="gpu30"></div></div>
+        <div class="idx"><div class="k">RAM · 7D</div><div class="v" id="ram7">--</div><div class="mini" id="ram30"></div></div>
+      </div>
+    </div>
+    <div class="panel" data-panel="market" data-info="deals">
+      <div class="ph"><span>LIVE DEALS</span><span class="mini">≥15% under typical</span></div>
+      <div class="list" id="deals"></div>
+    </div>
+    <div class="panel" data-panel="market" data-info="rows">
+      <div class="ph"><span>GRAPHICS CARDS</span></div>
+      <div class="list" id="gpuRows"></div>
+    </div>
+    <div class="panel" data-panel="market" data-info="rows">
+      <div class="ph"><span>DESKTOP RAM</span></div>
+      <div class="list" id="ramRows"></div>
+    </div>
+  </section>
+
+  <!-- CONTROL -->
+  <section class="view" id="view-control" aria-label="Control">
+    <div class="panel" data-panel="jobs" data-info="jobs">
+      <div class="ph"><span>JOBS</span></div>
+      <div class="actions">
+        <button class="act" data-action="run_prices"><span class="ai">⟳</span>Run price update</button>
+        <button class="act" data-action="run_backup"><span class="ai">☁</span>Run cloud backup</button>
+        <button class="act" id="funnelBtn" data-action="funnel_on"><span class="ai">◉</span><span id="funnelText">Go public</span></button>
+        <button class="act" data-action="update_app"><span class="ai">⇣</span>Update this app</button>
+      </div>
+      <div class="list" id="timers"></div>
+      <div class="list" id="backups"></div>
+    </div>
+    <div class="panel" data-panel="services" data-info="services">
+      <div class="ph"><span>SERVICES</span></div>
+      <div class="list" id="services"></div>
+    </div>
+    <div class="panel" data-panel="containers" data-info="containers">
+      <div class="ph"><span>CONTAINERS</span></div>
+      <div class="list" id="containers"></div>
+    </div>
+    <div class="panel" data-panel="links" data-info="links">
+      <div class="ph"><span>LINKS</span></div>
+      <div class="links" id="links"></div>
+    </div>
+    <div class="panel danger" data-info="power">
+      <div class="ph"><span>POWER</span></div>
+      <button class="hold" id="rebootBtn"><span class="fill"></span><span class="txt">HOLD TO REBOOT</span></button>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section class="view" id="view-settings" aria-label="Settings">
+    <div class="panel">
+      <div class="ph"><span>ACCENT</span></div>
+      <div class="swatches" id="swatches"></div>
+    </div>
+    <div class="panel" data-info="settings">
+      <div class="ph"><span>LIVE REFRESH</span><span class="mini" id="refreshVal">2s</span></div>
+      <input type="range" id="refresh" min="1" max="10" step="1" aria-label="Refresh seconds">
+    </div>
+    <div class="panel">
+      <div class="ph"><span>DISPLAY</span></div>
+      <label class="tog"><input type="checkbox" id="compact"><span>Compact layout</span></label>
+      <label class="tog"><input type="checkbox" id="reduceMotion"><span>Reduce motion</span></label>
+    </div>
+    <div class="panel">
+      <div class="ph"><span>PANELS</span></div>
+      <div id="panelToggles"></div>
+    </div>
+    <div class="panel" data-info="identity">
+      <div class="ph"><span>IDENTITY</span></div>
+      <div class="mini" id="me">--</div>
+      <div class="mini" id="tsInfo"></div>
+    </div>
+  </section>
+</main>
+
+<nav class="tabs" aria-label="Sections">
+  <button data-view="system" class="on"><span class="ti">◎</span>System</button>
+  <button data-view="market"><span class="ti">◆</span>Market</button>
+  <button data-view="control"><span class="ti">⌘</span>Control</button>
+  <button data-view="settings"><span class="ti">⚙</span>Settings</button>
+</nav>
+
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="sheet-card"><div class="grab"></div>
+    <div class="sheet-h"><h2 id="sheetTitle">Info</h2><button class="close" aria-label="Close">✕</button></div>
+    <div class="sheet-b" id="sheetBody"></div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="app.js"></script>
+</body>
+</html>

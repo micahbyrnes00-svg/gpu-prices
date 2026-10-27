@@ -237,10 +237,37 @@ monitor)  # live stats web app (Glances), reachable only on your tailnet over HT
     -e GLANCES_OPT="-w" -v /var/run/docker.sock:/var/run/docker.sock:ro \
     -v /etc/os-release:/etc/os-release:ro nicolargo/glances:latest-full >/dev/null || exit 1
   sleep 5
-  sudo tailscale serve --bg --https=8443 http://127.0.0.1:61208 >/dev/null
+  sudo tailscale serve --https=8443 off >/dev/null 2>&1; sudo tailscale serve --bg --https=10000 http://127.0.0.1:61208 >/dev/null
   dns=$(tailscale status --json | python3 -c 'import json,sys;print(json.load(sys.stdin)["Self"]["DNSName"].rstrip("."))')
-  echo "Live stats (tailnet only): https://$dns:8443"
+  echo "Live stats (tailnet only): https://$dns:10000"
   tailscale serve status
+  ;;
+dashinstall)  # Pi Command iPhone app: service + limited sudo rules + private HTTPS on the tailnet
+  login=$(tailscale status --json | python3 -c 'import json,sys;d=json.load(sys.stdin);print(d["User"][str(d["Self"]["UserID"])]["LoginName"])')
+  [ -n "$login" ] || { echo "Could not read Tailscale login"; exit 1; }
+  units="gpu-prices.timer pi-cloud-backup.timer tailscaled.service docker.service wayvnc.service fieldpi-scan.service fieldpi-web.service matrixvms.service shairport-sync.service cockpit.socket picommand.service"
+  tmp=$(mktemp)
+  { echo "# Pi Command app: exact commands only"
+    for u in $units; do for a in start stop restart; do echo "pi ALL=(root) NOPASSWD: /usr/bin/systemctl $a $u"; done; done
+    echo "pi ALL=(root) NOPASSWD: /usr/bin/systemctl start --no-block gpu-prices.service"
+    echo "pi ALL=(root) NOPASSWD: /usr/bin/systemctl start --no-block pi-cloud-backup.service"
+    echo "pi ALL=(root) NOPASSWD: /usr/bin/systemctl reboot"
+    echo "pi ALL=(root) NOPASSWD: /usr/bin/tailscale funnel --bg 8088"
+    echo "pi ALL=(root) NOPASSWD: /usr/bin/tailscale funnel --https=443 off"
+  } > "$tmp"
+  sudo visudo -cf "$tmp" >/dev/null && sudo install -m 440 -o root -g root "$tmp" /etc/sudoers.d/picommand || { echo "sudoers check failed"; exit 1; }
+  rm -f "$tmp"
+  printf '%s\n' "[Unit]" "Description=Pi Command dashboard (iPhone app backend)" \
+    "After=network-online.target tailscaled.service" "Wants=network-online.target" "[Service]" "User=pi" \
+    "WorkingDirectory=/home/pi/gpu-prices" "Environment=ALLOWED_LOGIN=$login" \
+    "Environment=PATH=/home/pi/.local/bin:/usr/local/bin:/usr/bin:/bin" \
+    "ExecStart=/usr/bin/python3 /home/pi/gpu-prices/dash/server.py" "Restart=always" "RestartSec=3" \
+    "[Install]" "WantedBy=multi-user.target" | sudo tee /etc/systemd/system/picommand.service >/dev/null
+  sudo systemctl daemon-reload && sudo systemctl enable --now picommand.service && sudo systemctl restart picommand.service
+  sudo tailscale serve --bg --https=8443 http://127.0.0.1:8099 >/dev/null
+  dns=$(tailscale status --json | python3 -c 'import json,sys;print(json.load(sys.stdin)["Self"]["DNSName"].rstrip("."))')
+  sleep 2; systemctl is-active picommand.service
+  echo "Pi Command: https://$dns:8443  (only $login)"
   ;;
 stats)  # health snapshot
   echo "== $(hostname)  $(cat /proc/device-tree/model 2>/dev/null | tr -d '\0')"
