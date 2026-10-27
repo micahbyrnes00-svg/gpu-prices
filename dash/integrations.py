@@ -158,6 +158,8 @@ def test_discord(key):
 
 
 def test_ebay():
+    import os
+    env = {k: v for k, v in os.environ.items() if not k.startswith("EBAY_")}  # read fresh keys from .env
     r = subprocess.run(["python3", "-c", "from tracker.ebay import EbayClient; EbayClient()._get_token(); print('ok')"],
-                       cwd=str(REPO), capture_output=True, text=True, timeout=40)
+                       cwd=str(REPO), capture_output=True, text=True, timeout=40, env=env)
     return ("ok" in r.stdout), ("eBay accepted the keys" if "ok" in r.stdout else (r.stderr.strip().splitlines() or ["failed"])[-1][:120])

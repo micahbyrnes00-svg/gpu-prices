@@ -14,7 +14,9 @@ def _load_dotenv(path: Path) -> None:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, val = line.partition("=")
-        os.environ.setdefault(key.strip(), val.strip().strip('"').strip("'"))
+        key, val = key.strip(), val.strip().strip('"').strip("'")
+        if not os.environ.get(key):  # .env fills anything unset or empty (a parent process may pass empty values)
+            os.environ[key] = val
 
 
 _load_dotenv(ROOT / ".env")
