@@ -294,7 +294,9 @@ def market():
         c = r["current"]
         if not c:
             continue
-        rows.append({"id": r["model"]["id"], "name": r["model"]["name"], "cat": r["model"]["cat"],
+        prior = [p["median"] for p in r["series"][-91:-1]]
+        signal = len(r["series"]) >= 15 and bool(prior) and c["median"] <= min(prior)
+        rows.append({"id": r["model"]["id"], "name": r["model"]["name"], "cat": r["model"]["cat"], "signal": signal, "day": c["day"],
                      "median": c["median"], "chg7": r["chg_7d"], "chg30": r["chg_30d"],
                      "perGb": r.get("per_gb"), "spark": [p["median"] for p in r["series"][-30:]],
                      "url": f"{site}/{r['model']['id']}.html"})
@@ -310,6 +312,28 @@ def market():
             "gpu30": tstats.market_index(reps, "gpu", "chg_30d"), "ram30": tstats.market_index(reps, "ram", "chg_30d"),
             "deals": deals[:8], "site": site, "allListings": listings,
             "models": [{"id": m["id"], "name": m["name"]} for m in models]}
+
+
+def model_history(mid):
+    sys.path.insert(0, str(REPO))
+    from tracker import config as tcfg, db as tdb, stats as tstats  # noqa: E402
+    m = next((x for x in tcfg.load_models()["models"] if x["id"] == mid), None)
+    if not m or not tcfg.DB_PATH.exists():
+        return None
+    con = tdb.connect()
+    r = tstats.model_report(con, m)
+    ser = r["series"]
+    if not ser:
+        return {"id": mid, "name": m["name"], "series": []}
+    cur = ser[-1]["median"]
+    med = [p["median"] for p in ser]
+    prior = med[-91:-1]
+    return {"id": mid, "name": m["name"], "cat": m["cat"], "series": ser, "newSeries": tstats.daily_series(con, mid, "new"),
+            "current": cur, "chg7": r["chg_7d"], "chg30": r["chg_30d"],
+            "low90": min(med[-90:]), "high90": max(med[-90:]), "lowAll": min(med), "highAll": max(med),
+            "signal": len(ser) >= 15 and bool(prior) and cur <= min(prior),
+            "listings": [{"title": l["title"], "total": l["total"], "url": l["url"], "seller": l["seller_pct"]} for l in r["listings"][:6]],
+            "url": f"{tcfg.SITE_URL}/{mid}.html"}
 
 
 def backups():
@@ -365,6 +389,9 @@ def act(body):
         code, out = sh(["git", "-C", str(REPO), "pull", "--ff-only", "-q"], 60)
         if code == 0:
             threading.Timer(1.0, lambda: sh(SUDO_SYSTEMCTL + ["restart", "picommand.service"], 30)).start()
+    elif a == "apply_updates":
+        code, out = sh(SUDO_SYSTEMCTL + ["start", "--no-block", "apt-daily-upgrade.service"], 10)
+        out = out or "Installing updates in the background"
     elif a == "reboot":
         threading.Timer(1.5, lambda: sh(SUDO_SYSTEMCTL + ["reboot"], 10)).start()
         code, out = 0, "rebooting"
@@ -404,6 +431,8 @@ import analytics  # noqa: E402
 import disks  # noqa: E402
 import monitor  # noqa: E402
 import netradar  # noqa: E402
+import security  # noqa: E402
+import sitemon  # noqa: E402
 import store  # noqa: E402
 import webauthn  # noqa: E402
 import webpush  # noqa: E402
@@ -411,7 +440,7 @@ import webpush  # noqa: E402
 SAMPLER = Sampler()
 WATCHER = monitor.Watcher(SAMPLER, status)
 LOG_UNITS = [u for u in UNITS] + ["gpu-prices.service", "pi-cloud-backup.service", "picommand.service"]
-GATED = {"reboot", "stop", "funnel_on", "funnel_off", "update_app"}
+GATED = {"reboot", "stop", "funnel_on", "funnel_off", "update_app", "apply_updates"}
 
 
 def needs_unlock(action):
@@ -486,6 +515,13 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, {**netradar.summary(), "devices": netradar.devices()})
         if path == "/api/money":
             return self._json(200, analytics.summary(urlparse(load_settings().get("siteUrl", "")).netloc))
+        if path == "/api/sites":
+            return self._json(200, sitemon.summary())
+        if path == "/api/security":
+            return self._json(200, security.summary())
+        if path == "/api/market/model":
+            h = model_history((qs.get("id") or [""])[0])
+            return self._json(200 if h else 404, h or {"error": "unknown model"})
         if path == "/api/disks":
             return self._json(200, disks.cached())
         if path == "/api/logs":
@@ -560,6 +596,22 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/network/speedtest":
             bg(netradar.speedtest)
             return self._json(200, {"ok": True, "message": "Speed test running (about 30 s)…"})
+        if path == "/api/network/wake":
+            try:
+                t = netradar.wake(body.get("mac", ""))
+                return self._json(200, {"ok": True, "message": "Wake packet sent"})
+            except (ValueError, OSError) as e:
+                return self._json(400, {"ok": False, "message": str(e)})
+        if path == "/api/sites":
+            saved = sitemon.save_sites(body.get("sites") or [])
+            bg(sitemon.check_all)
+            return self._json(200, {"ok": True, "sites": saved})
+        if path == "/api/sites/check":
+            bg(sitemon.check_all)
+            return self._json(200, {"ok": True})
+        if path == "/api/security/check":
+            bg(security.updates)
+            return self._json(200, {"ok": True})
         if path == "/api/disks/refresh":
             bg(disks.read_all)
             return self._json(200, {"ok": True})

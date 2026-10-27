@@ -256,7 +256,8 @@ dashinstall)  # Pi Command iPhone app: service + limited sudo rules + private HT
     echo "pi ALL=(root) NOPASSWD: /usr/bin/systemctl reboot"
     echo "pi ALL=(root) NOPASSWD: /usr/bin/tailscale funnel --bg 8088"
     echo "pi ALL=(root) NOPASSWD: /usr/bin/tailscale funnel --https=443 off"
-    echo "pi ALL=(root) NOPASSWD: /usr/sbin/smartctl -a -j -d sat /dev/sd[a-z]"
+    for d in sat 'sat\,12' 'sat\,16' usbjmicron usbsunplus usbcypress; do echo "pi ALL=(root) NOPASSWD: /usr/sbin/smartctl -a -j -d $d /dev/sd[a-z]"; done
+    echo "pi ALL=(root) NOPASSWD: /usr/bin/systemctl start --no-block apt-daily-upgrade.service"
   } > "$tmp"
   sudo visudo -cf "$tmp" >/dev/null && sudo install -m 440 -o root -g root "$tmp" /etc/sudoers.d/picommand || { echo "sudoers check failed"; exit 1; }
   rm -f "$tmp"
@@ -288,11 +289,21 @@ lockdown)  # admin tools (Portainer, Cockpit, Glances, raw site port) reachable 
   sudo systemctl daemon-reload && sudo systemctl enable orbit-lockdown.service >/dev/null 2>&1 && sudo systemctl restart orbit-lockdown.service
   echo "LAN blocked: 9090 9443 8088 61208 (Tailscale and localhost unaffected)"
   ;;
+autoupdate)  # automatic daily security updates (unattended-upgrades), no automatic reboots
+  sudo apt-get install -y -qq unattended-upgrades apt-listchanges >/dev/null
+  printf '%s\n' 'APT::Periodic::Update-Package-Lists "1";' 'APT::Periodic::Unattended-Upgrade "1";' 'APT::Periodic::AutocleanInterval "7";' \
+    | sudo tee /etc/apt/apt.conf.d/20auto-upgrades >/dev/null
+  printf '%s\n' 'Unattended-Upgrade::Automatic-Reboot "false";' 'Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";' \
+    'Unattended-Upgrade::Remove-Unused-Dependencies "true";' | sudo tee /etc/apt/apt.conf.d/52orbit-unattended >/dev/null
+  sudo systemctl enable --now unattended-upgrades apt-daily.timer apt-daily-upgrade.timer >/dev/null 2>&1
+  echo "auto updates: $(systemctl is-enabled unattended-upgrades) / timer $(systemctl is-active apt-daily-upgrade.timer)"
+  ;;
 orbitupgrade)  # Orbit v3: push, network radar, drive health, money panel, logs, Face ID, LAN lockdown
   sudo apt-get install -y -qq python3-cryptography smartmontools ieee-data >/dev/null && echo "packages ok"
   bind=$(docker port gpu-prices-web 80/tcp 2>/dev/null | head -1 | cut -d: -f1); [ -n "$bind" ] || bind=0.0.0.0
   bash "$0" web "$bind"
   bash "$0" lockdown
+  bash "$0" autoupdate
   bash "$0" dashinstall
   sleep 3; curl -s -o /dev/null -w "app api: %{http_code} (403 = locked to your login)\n" http://127.0.0.1:8099/api/alerts
   ;;

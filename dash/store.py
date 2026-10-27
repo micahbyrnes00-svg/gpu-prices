@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS hits (id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL, 
     visitor TEXT, status INTEGER, kind TEXT, model TEXT);
 CREATE INDEX IF NOT EXISTS hits_ts ON hits(ts);
 CREATE TABLE IF NOT EXISTS earnings (key TEXT PRIMARY KEY, ts REAL, amount REAL, item TEXT, imported REAL);
+CREATE TABLE IF NOT EXISTS sitechecks (ts REAL, url TEXT, ok INTEGER, code INTEGER, ms REAL, err TEXT);
+CREATE INDEX IF NOT EXISTS sitechecks_u ON sitechecks(url, ts);
 CREATE TABLE IF NOT EXISTS passkeys (cred_id TEXT PRIMARY KEY, x TEXT, y TEXT, sign_count INTEGER, created REAL);
 """
 

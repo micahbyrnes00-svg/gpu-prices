@@ -37,8 +37,7 @@ def ingest():
             req = e.get("request", {})
             h = {k.lower(): v for k, v in (req.get("headers") or {}).items()}
             ua = (h.get("user-agent") or [""])[0]
-            if BOTS.search(ua):
-                continue
+            bot = bool(BOTS.search(ua)) or not ua
             ip = (h.get("x-forwarded-for") or [req.get("client_ip") or req.get("remote_ip", "")])[0].split(",")[0].strip()
             uri = req.get("uri", "/")
             path = urlparse(uri).path
@@ -47,11 +46,15 @@ def ingest():
             visitor = hashlib.sha256(f"{salt}{day}{ip}{ua}".encode()).hexdigest()[:16]  # rotates daily, no raw IPs kept
             ref = (h.get("referer") or [""])[0]
             ref_host = urlparse(ref).netloc if ref else ""
+            if bot and e.get("status", 200) < 400:
+                continue
             if path == "/c":  # affiliate click beacon from the site
                 model = parse_qs(urlparse(uri).query).get("m", [""])[0][:60]
                 rows.append((ts, path, ref_host, visitor, e.get("status", 0), "click", model))
             elif e.get("status", 200) < 400 and not ASSET.search(path) and req.get("method") == "GET":
                 rows.append((ts, path, ref_host, visitor, e.get("status", 200), "view", ""))
+            elif 400 <= e.get("status", 200) < 500 and path not in ("/favicon.ico", "/robots.txt", "/apple-touch-icon.png"):
+                rows.append((ts, path[:120], ref_host, visitor, e.get("status"), "err", ""))
         new_pos = f.tell()
     if rows:
         store.many("INSERT INTO hits (ts, path, ref, visitor, status, kind, model) VALUES (?,?,?,?,?,?,?)", rows)

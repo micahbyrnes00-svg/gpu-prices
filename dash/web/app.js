@@ -36,7 +36,8 @@ const INFO = {
 <p>Prices come from listings collected every 6 hours through the eBay Browse API and stored in the tracker's database. This screen shows the same numbers as the public site.</p>`],
   deals: ["Live deals", `<p>Listings priced at least 15% below that model's typical (median) price. To reduce scams, only sellers with 98%+ positive feedback and at least 20 ratings count, and anything priced suspiciously low is dropped.</p>
 <p>Tapping a deal opens eBay through the affiliate link.</p>`],
-  rows: ["Model prices", `<p>For each model: the <b>median</b> used price including shipping (the middle value, so a few extreme listings don't skew it), the 7-day change, and a 30-day trend line. Tap a row to open that model's page on the public site.</p>`],
+  rows: ["Model prices", `<p>For each model: the <b>median</b> used price including shipping (the middle value, so a few extreme listings don't skew it), the 7-day change, and a 30-day trend line.</p>
+<p>Tap a row for the full price chart, 90-day high and low, and the cheapest trusted listings. <span class="signal">BUY</span> appears when today's typical price is the lowest in 90 days. You can get a push alert for that, too.</p>`],
   jobs: ["Jobs", `<p><b>Run price update</b> starts the price collection job immediately instead of waiting for its scheduled time.</p>
 <p><b>Run cloud backup</b> creates a compressed, encrypted image of the system and uploads it to cloud storage. It can take a while, depending on upload speed.</p>
 <p><b>Go public / Go private</b> turns Tailscale Funnel on or off, which controls whether the price site is reachable from the internet.</p>
@@ -75,6 +76,14 @@ const INFO = {
   faceid: ["Face ID", `<p>Adds a <b>passkey</b> (WebAuthn), a cryptographic key pair whose private half stays in the phone's Secure Enclave and is unlocked by Face ID. The Pi keeps only the public key.</p>
 <p>Once it's set up, risky actions ask for Face ID first: reboot, stopping services, going public and updating. The phone signs a one-time challenge from the Pi, and the Pi checks the signature before allowing the action. One approval lasts 5 minutes.</p>
 <p>This is a second layer on top of the Tailscale login check.</p>`],
+  sites: ["Website monitor", `<p>Every few minutes the Pi requests each website like a browser would and records the <b>HTTP status code</b> (200 means OK, 4xx/5xx means an error) and how long the response took.</p>
+<p>For HTTPS sites it also reads the site's <b>TLS certificate</b>, the file that proves the site's identity and enables encryption, and shows how many days until it expires. An expired certificate makes browsers show a security warning.</p>
+<p>Two failed checks in a row send a "down" alert, and another when it recovers. The checks run from your home connection, so if your internet is down every site will look down too. The Internet panel shows when that happens.</p>`],
+  security: ["Security autopilot", `<p><b>Automatic updates:</b> <code>unattended-upgrades</code> installs security patches from Debian every day without asking, which closes known holes quickly. Other updates are listed so you can install them with one tap.</p>
+<p><b>Restart:</b> some updates, mainly the Linux kernel, only take effect after a reboot. Orbit tells you when one is needed.</p>
+<p><b>Admin ports:</b> a firewall rule (<code>iptables</code>) blocks Portainer, Cockpit, Glances and the raw site port from your home network, so only devices on your Tailscale network can reach them.</p>
+<p><b>SSH:</b> every successful remote login is reported, and repeated failed logins (someone guessing passwords) trigger an alert.</p>
+<p><b>Site probing:</b> bots constantly scan public websites for files like <code>/wp-admin</code> or <code>/.env</code>. The price site is plain static HTML with no login, database or scripts on the server, so those scans find nothing. Orbit counts them and alerts on heavy scanning.</p>`],
   identity: ["Identity & security", `<p>Every request reaches the Pi through Tailscale, which attaches the verified identity of the signed-in user. Orbit only accepts the owner's account. Requests that change anything also need a special header, which blocks cross-site request forgery from other web pages.</p>
 <p>The app isn't exposed to the public internet or the local network. Only the owner's devices on the tailnet can reach it.</p>`],
 };
@@ -196,7 +205,7 @@ function renderMarket(m) {
   $("#gpu7").innerHTML = pct(m.gpu7); $("#ram7").innerHTML = pct(m.ram7);
   $("#gpu30").innerHTML = "30d " + pct(m.gpu30); $("#ram30").innerHTML = "30d " + pct(m.ram30);
   $("#deals").innerHTML = m.deals.length ? m.deals.map(d => `<a class="row" href="${esc(d.url)}" target="_blank" rel="noopener sponsored"><div class="main"><div class="name">${esc(d.model)}</div><div class="meta">${esc(d.title)}</div></div><div class="num">${money(d.total)}<div class="meta down">${d.under}% under</div></div></a>`).join("") : '<div class="note">No standout deals right now.</div>';
-  const row = r => `<a class="row" href="${esc(r.url)}" target="_blank" rel="noopener"><div class="main"><div class="name">${esc(r.name)}</div><div class="meta">${r.perGb ? "$" + r.perGb.toFixed(2) + "/GB · " : ""}30d ${r.chg30 == null ? "--" : r.chg30.toFixed(1) + "%"}</div></div>${miniSpark(r.spark)}<div class="num">${money(r.median)}<div class="meta">${pct(r.chg7)}</div></div></a>`;
+  const row = r => `<button class="row" data-model="${esc(r.id)}"><div class="main"><div class="name">${esc(r.name)}${r.signal ? ' <span class="signal">BUY</span>' : ""}</div><div class="meta">${r.perGb ? "$" + r.perGb.toFixed(2) + "/GB · " : ""}30d ${r.chg30 == null ? "--" : r.chg30.toFixed(1) + "%"}</div></div>${miniSpark(r.spark)}<div class="num">${money(r.median)}<div class="meta">${pct(r.chg7)}</div></div></button>`;
   $("#gpuRows").innerHTML = m.rows.filter(r => r.cat === "gpu").map(row).join("");
   $("#ramRows").innerHTML = m.rows.filter(r => r.cat === "ram").map(row).join("");
 }
@@ -304,10 +313,10 @@ function addInfoButtons() {
 let cur = "system";
 function onView(v) {
   cur = v;
-  if (v === "network") loadNetwork();
+  if (v === "network") { loadNetwork(); loadSites(); }
   if (v === "market") { loadStatus(); loadMoney(); }
   if (v === "alerts") { loadAlerts(); $("#alertDot").classList.remove("on"); try { localStorage.setItem("seenAlert", String(Date.now() / 1000)); } catch { } }
-  if (v === "control") { loadStatus(); fillLogSources(); }
+  if (v === "control") { loadStatus(); fillLogSources(); loadSecurity(); }
   if (v === "settings") { loadStatus(); loadAlerts(); }
 }
 const b64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -354,7 +363,7 @@ async function loadNetwork() {
     <div class="main"><div class="name"><input value="${esc(d.name || d.host || d.vendor || d.mac)}" data-rename aria-label="Device name"></div>
     <div class="meta">${esc(d.ip)} · ${esc((d.name || d.host) ? (d.vendor || d.mac) : d.mac)} · ${d.online ? "online" : "seen " + ago(d.last_seen)}</div></div>
     ${d.trusted ? `<span class="badge ${d.online ? "on" : ""}">${d.online ? "ON" : "OFF"}</span>` : `<button class="btn go" data-trust>✓</button>`}
-    <button class="btn" data-forget>✕</button></div>`).join("");
+    ${d.online ? "" : `<button class="btn" data-wake aria-label="Wake">⏻</button>`}<button class="btn" data-forget>✕</button></div>`).join("");
 }
 document.addEventListener("change", async e => {
   const r = e.target.closest("[data-rename]"); if (!r) return;
@@ -440,11 +449,12 @@ $("#alertsClear").addEventListener("click", async () => { await post("api/alerts
 function renderRules() {
   const el = $("#rules");
   if (el.contains(document.activeElement)) return;
-  const unit = { limit: k => k === "disk_full" ? "%" : "°C", temp: () => "°C", visitors: () => "visitors", down: () => "Mbps", hour: () => ":00" };
+  const unit = { limit: k => k === "disk_full" ? "%" : "°C", temp: () => "°C", visitors: () => "visitors", down: () => "Mbps", hour: () => ":00",
+    ms: () => "ms", days: () => "days", fails: () => "fails", hits: () => "errors" };
   el.innerHTML = Object.entries(alertCfg.rules).map(([k, r]) => `<div class="rule" data-rule="${k}">
     <label class="tog"><span class="rn"><span class="lvl ${r.level}"></span>${esc(r.label)}</span><input type="checkbox" data-ron ${r.enabled ? "checked" : ""}></label>
     <div class="rd">${esc(r.desc)}</div>
-    ${Object.entries(r.params).map(([p, v]) => `<div class="rp"><span>${p === "limit" || p === "temp" ? "Limit" : p === "hour" ? "Send at" : p === "visitors" ? "Threshold" : "Below"}</span><input type="number" data-rparam="${p}" value="${v}"><span>${unit[p] ? unit[p](k) : ""}</span></div>`).join("")}
+    ${Object.entries(r.params).map(([p, v]) => `<div class="rp"><span>${p === "limit" || p === "temp" ? "Limit" : p === "hour" ? "Send at" : p === "visitors" || p === "fails" || p === "hits" ? "Threshold" : p === "days" ? "Within" : p === "ms" ? "Slower than" : "Below"}</span><input type="number" data-rparam="${p}" value="${v}"><span>${unit[p] ? unit[p](k) : ""}</span></div>`).join("")}
   </div>`).join("");
 }
 document.addEventListener("change", async e => {
@@ -539,6 +549,98 @@ $("#faceRemove").addEventListener("click", async () => {
   if (r.needFaceId && await faceUnlock()) r = await post("api/auth/remove", {});
   toast(r.ok ? "Face ID removed" : "✗ Not removed"); loadAlerts();
 });
+/* ---------------- website monitor ---------------- */
+let siteList = [];
+async function loadSites() {
+  let d; try { d = await api("api/sites"); } catch { return; }
+  siteList = d.sites.map(s => ({ url: s.url, name: s.name }));
+  $("#sites").innerHTML = d.sites.length ? d.sites.map((s, i) => {
+    const l = s.last, up = l ? l.ok : null;
+    const cert = l?.certDays != null ? `cert ${Math.floor(l.certDays)}d` : "";
+    return `<div class="row"><div class="main"><div class="name">${esc(s.name)}</div>
+      <div class="meta">${l ? (l.ok ? l.ms + " ms" : esc(l.code ? "HTTP " + l.code : l.err || "no response")) : "checking…"}${s.uptime24 != null ? " · " + s.uptime24 + "% 24h" : ""}${cert ? " · " + cert : ""}</div></div>
+      ${miniSpark(s.series.length > 1 ? s.series : null)}
+      <span class="badge ${up == null ? "" : up ? "on" : "off"}">${up == null ? "--" : up ? "UP" : "DOWN"}</span>
+      <button class="btn" data-sdel="${i}" aria-label="Remove">✕</button></div>`;
+  }).join("") : `<div class="meta">Add a website to watch its uptime, speed and certificate.</div>`;
+}
+$("#siteAdd").addEventListener("click", async () => {
+  const v = $("#siteUrl").value.trim(); if (!v) return;
+  const r = await post("api/sites", { sites: [...siteList, { url: v }] }); $("#siteUrl").value = "";
+  toast(r.ok ? "Watching " + v : "✗ failed"); setTimeout(loadSites, 600); setTimeout(loadSites, 8000);
+});
+document.addEventListener("click", async e => {
+  const d = e.target.closest("[data-sdel]"); if (!d) return;
+  await post("api/sites", { sites: siteList.filter((_, i) => i !== +d.dataset.sdel) }); loadSites();
+});
+$("#sitesCheck").addEventListener("click", async () => { await post("api/sites/check", {}); toast("Checking…"); setTimeout(loadSites, 6000); });
+
+/* ---------------- wake-on-LAN ---------------- */
+document.addEventListener("click", async e => {
+  const w = e.target.closest("[data-wake]"); if (!w) return;
+  const r = await post("api/network/wake", { mac: w.closest("[data-mac]").dataset.mac });
+  toast((r.ok ? "⏻ " : "✗ ") + r.message);
+});
+
+/* ---------------- security ---------------- */
+async function loadSecurity() {
+  let s; try { s = await api("api/security"); } catch { return; }
+  const row = (name, meta, badge, cls) => `<div class="row"><div class="main"><div class="name">${name}</div><div class="meta">${meta}</div></div><span class="badge ${cls}">${badge}</span></div>`;
+  const u = s.updates;
+  const open = s.openPorts.filter(p => !p.blocked).map(p => p.port);
+  $("#security").innerHTML = [
+    row("Automatic security updates", s.auto.lastRun ? "last run " + ago(s.auto.lastRun) : "daily, via unattended-upgrades", s.auto.enabled ? "ON" : "OFF", s.auto.enabled ? "on" : "off"),
+    row("Pending updates", u ? `${u.pending} waiting · ${u.security} security · checked ${ago(u.ts)}` : "first check runs shortly", u ? (u.pending ? u.pending : "NONE") : "--", u && u.security ? "warn" : u ? "on" : ""),
+    row("Restart", s.reboot ? "needed for: " + esc(s.rebootPkgs.join(", ") || "updated packages") : "not needed", s.reboot ? "NEEDED" : "OK", s.reboot ? "warn" : "on"),
+    row("Admin ports from home network", s.lockdown ? "Portainer, Cockpit, Glances, site port: Tailscale only" : "lockdown not active", s.lockdown ? "BLOCKED" : "OPEN", s.lockdown ? "on" : "off"),
+    row("Listening on all interfaces", esc(open.join(", ") || "none") + (open.length ? " (SSH, VNC and similar)" : ""), open.length, ""),
+    row("SSH logins", s.sshOk.length ? `last: ${esc(s.sshOk[0].user)} from ${esc(s.sshOk[0].ip)} ${ago(s.sshOk[0].ts)}` : "none recorded yet", s.sshFail24 + " FAILED", s.sshFail24 ? "warn" : "on"),
+    row("Site probing (24h)", s.probes24 ? `${s.probes24} error hits from ${s.probers24} visitors · ${esc(s.probePaths.slice(0, 3).map(p => p.path).join(" "))}` : "no suspicious requests", s.probes24 || "0", s.probes24 > 50 ? "warn" : "on"),
+  ].join("");
+}
+$("#secCheck").addEventListener("click", async () => { await post("api/security/check", {}); toast("Checking for updates…"); setTimeout(loadSecurity, 15000); });
+$("#secApply").addEventListener("click", e => runAction("apply_updates", "", e.target));
+
+/* ---------------- price chart ---------------- */
+let chartData = null, chartRange = 90;
+async function openChart(id) {
+  $("#sheetTitle").textContent = "Loading…"; $("#sheetBody").innerHTML = ""; $("#sheet").classList.add("open");
+  try { chartData = await api("api/market/model?id=" + encodeURIComponent(id)); } catch { $("#sheetTitle").textContent = "No data"; return; }
+  renderChart();
+}
+function renderChart() {
+  const d = chartData; if (!d) return;
+  $("#sheetTitle").textContent = d.name;
+  if (!d.series?.length) { $("#sheetBody").innerHTML = "<p>No price history yet.</p>"; return; }
+  const ser = chartRange ? d.series.slice(-chartRange) : d.series;
+  const W = 340, H = 190, L = 40, R = 8, T = 10, B = 22;
+  const vals = ser.flatMap(p => [p.p25, p.p75, p.median]);
+  let lo = Math.min(...vals), hi = Math.max(...vals); const pad = (hi - lo) * .08 || 5; lo -= pad; hi += pad;
+  const x = i => L + (ser.length < 2 ? (W - L - R) / 2 : i / (ser.length - 1) * (W - L - R)), y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+  const band = ser.map((p, i) => `${x(i)},${y(p.p75)}`).join(" ") + " " + ser.map((p, i) => `${x(i)},${y(p.p25)}`).reverse().join(" ");
+  const line = ser.map((p, i) => `${x(i)},${y(p.median)}`).join(" ");
+  const ticks = [lo + pad, (lo + hi) / 2, hi - pad].map(v => `<text x="2" y="${y(v) + 3}">$${Math.round(v)}</text><line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/>`).join("");
+  const low90 = `<line x1="${L}" x2="${W - R}" y1="${y(d.low90)}" y2="${y(d.low90)}" stroke="var(--good)" stroke-dasharray="3 4" opacity=".7"/>`;
+  const dl = [ser[0], ser.at(-1)].map((p, k) => `<text x="${k ? W - R : L}" y="${H - 6}" text-anchor="${k ? "end" : "start"}">${p.day.slice(5)}</text>`).join("");
+  const last = ser.at(-1);
+  $("#sheetBody").innerHTML = `
+    <div>${d.signal ? '<span class="signal">BUY SIGNAL · 90-DAY LOW</span>' : '<span class="mini">Typical used price, including shipping</span>'}</div>
+    <div class="kv"><div><div class="k">NOW</div><div class="v">${money(d.current)}</div></div><div><div class="k">7D</div><div class="v">${pct(d.chg7)}</div></div><div><div class="k">30D</div><div class="v">${pct(d.chg30)}</div></div>
+      <div><div class="k">90D LOW</div><div class="v down">${money(d.low90)}</div></div><div><div class="k">90D HIGH</div><div class="v up">${money(d.high90)}</div></div><div><div class="k">ALL-TIME LOW</div><div class="v">${money(d.lowAll)}</div></div></div>
+    <svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Price history">${ticks}${low90}
+      <polygon points="${band}" fill="var(--a)" opacity=".13"/><polyline points="${line}" fill="none" stroke="var(--a)" stroke-width="2.2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+      <circle cx="${x(ser.length - 1)}" cy="${y(last.median)}" r="3.5" fill="var(--a)"/>${dl}</svg>
+    <div class="mini">Line = median · band = middle 50% of listings · dashed = 90-day low</div>
+    <div class="ranges">${[[30, "30D"], [90, "90D"], [365, "1Y"], [0, "ALL"]].map(([r, t]) => `<button class="btn ${r === chartRange ? "on" : ""}" data-range="${r}">${t}</button>`).join("")}</div>
+    <div class="sub2">CHEAPEST TRUSTED LISTINGS</div>
+    <div class="list">${d.listings.map(l => `<a class="row" href="${esc(l.url)}" target="_blank" rel="noopener sponsored"><div class="main"><div class="name">${esc(l.title)}</div><div class="meta">${(l.seller || 0).toFixed(1)}% seller feedback</div></div><div class="num">${money(l.total)}</div></a>`).join("") || '<div class="meta">None right now.</div>'}</div>
+    <a class="btn wide" href="${esc(d.url)}" target="_blank" rel="noopener">OPEN ON SITE ↗</a>`;
+}
+document.addEventListener("click", e => {
+  const r = e.target.closest("[data-range]"); if (r) { chartRange = +r.dataset.range; renderChart(); return; }
+  const m = e.target.closest("[data-model]"); if (m) openChart(m.dataset.model);
+});
+
 /* ---------------- boot ---------------- */
 (async () => {
   addInfoButtons();
@@ -548,7 +650,7 @@ $("#faceRemove").addEventListener("click", async () => {
   await seedHistory(); connect(); loadStatus(); loadAlerts(); loadDisks();
   const start = location.hash.slice(1);
   if (start && $(`.tabs [data-view="${start}"]`)) $(`.tabs [data-view="${start}"]`).click();
-  setInterval(() => { loadStatus(); if (cur === "network") loadNetwork(); if (cur === "market") loadMoney(); if (cur === "alerts") loadAlerts(); }, 30000);
+  setInterval(() => { loadStatus(); if (cur === "network") { loadNetwork(); loadSites(); } if (cur === "control") loadSecurity(); if (cur === "market") loadMoney(); if (cur === "alerts") loadAlerts(); }, 30000);
   setInterval(loadDisks, 300000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { connect(); onView(cur); } });
   navigator.serviceWorker?.addEventListener("message", e => { if (e.data?.type === "nav") { const v = (e.data.url.split("#")[1] || "alerts"); $(`.tabs [data-view="${v}"]`)?.click(); } });

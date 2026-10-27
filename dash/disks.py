@@ -5,6 +5,7 @@ import time
 
 import store
 
+DTYPES = ["sat", "sat,12", "sat,16", "usbjmicron", "usbsunplus", "usbcypress"]
 WATCH_ATTRS = {5: "Reallocated sectors", 187: "Uncorrectable errors", 188: "Command timeouts",
                197: "Pending sectors", 198: "Offline uncorrectable", 199: "UDMA CRC errors"}
 
@@ -20,12 +21,20 @@ def read_all():
     for d in _disks():
         dev = "/dev/" + d["name"]
         info = {"dev": dev, "model": (d.get("model") or "").strip(), "size": d.get("size")}
-        r = subprocess.run(["sudo", "-n", "/usr/sbin/smartctl", "-a", "-j", "-d", "sat", dev],
-                           capture_output=True, text=True, timeout=60)
-        try:
-            j = json.loads(r.stdout)
-        except ValueError:
-            info["error"] = (r.stderr or r.stdout or "smartctl failed").strip()[-200:]
+        j, raw = None, ""
+        for dtype in DTYPES:  # USB bridges differ: try the common SAT pass-through variants
+            r = subprocess.run(["sudo", "-n", "/usr/sbin/smartctl", "-a", "-j", "-d", dtype, dev],
+                               capture_output=True, text=True, timeout=60)
+            raw = r.stderr or r.stdout
+            try:
+                j = json.loads(r.stdout)
+            except ValueError:
+                continue
+            if "smart_status" in j:
+                info["via"] = dtype
+                break
+        if j is None:
+            info["error"] = (raw or "smartctl failed").strip()[-200:]
             res.append(info)
             continue
         if not j.get("smart_support", {}).get("available", True) or "smart_status" not in j:

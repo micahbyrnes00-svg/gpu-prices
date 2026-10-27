@@ -97,6 +97,14 @@
       <canvas class="spark" id="latSpark" height="60" aria-label="Latency, last hour"></canvas>
       <div class="list" id="outages"></div>
     </div>
+    <div class="panel" data-info="sites">
+      <div class="ph"><span>WEBSITES</span><button class="btn" id="sitesCheck">↻</button></div>
+      <div class="list" id="sites"></div>
+      <div class="addrow">
+        <input id="siteUrl" type="url" inputmode="url" autocapitalize="off" autocorrect="off" placeholder="example.com" aria-label="Website address" style="flex:1;width:auto">
+        <button class="btn go" id="siteAdd">ADD</button>
+      </div>
+    </div>
     <div class="panel" data-info="speed">
       <div class="ph"><span>SPEED TEST</span><button class="btn go" id="speedBtn">RUN</button></div>
       <div class="stats3">
@@ -190,6 +198,8 @@
       <div class="prow"><span>Device scan every</span><input type="number" id="sch_net_scan_min" min="2"><span class="mini">min</span></div>
       <div class="prow"><span>Speed test every</span><input type="number" id="sch_speedtest_hours" min="1"><span class="mini">h</span></div>
       <div class="prow"><span>Drive health every</span><input type="number" id="sch_smart_min" min="5"><span class="mini">min</span></div>
+      <div class="prow"><span>Website checks every</span><input type="number" id="sch_site_min" min="1"><span class="mini">min</span></div>
+      <div class="prow"><span>Update check every</span><input type="number" id="sch_security_hours" min="1"><span class="mini">h</span></div>
     </div>
     <div class="panel" data-info="history">
       <div class="ph"><span>HISTORY</span><button class="btn" id="alertsClear">CLEAR</button></div>
@@ -199,6 +209,11 @@
 
   <!-- CONTROL -->
   <section class="view" id="view-control" aria-label="Control">
+    <div class="panel" data-info="security">
+      <div class="ph"><span>SECURITY</span><button class="btn" id="secCheck">↻</button></div>
+      <div class="list" id="security"><div class="note">Loading…</div></div>
+      <button class="btn wide" id="secApply" data-action="apply_updates">INSTALL UPDATES NOW</button>
+    </div>
     <div class="panel" data-panel="jobs" data-info="jobs">
       <div class="ph"><span>JOBS</span></div>
       <div class="actions">

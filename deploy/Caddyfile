@@ -16,6 +16,10 @@
 		format json
 	}
 
+	# common exploit scans: answer 404 immediately (logged, counted by Orbit as probing)
+	@probe path /wp-* /.env* /.git* *.php /cgi-bin/* /phpmyadmin* /vendor/* /boaform/* /actuator/* /.aws/* /admin*
+	respond @probe 404
+
 	# affiliate click beacon from the site's "View" buttons
 	@beacon path /c
 	respond @beacon 204

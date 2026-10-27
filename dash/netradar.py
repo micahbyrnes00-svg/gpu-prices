@@ -96,6 +96,25 @@ def scan():
     return new
 
 
+def wake(mac: str):
+    """Wake-on-LAN: send the magic packet (6x FF + MAC x16) as UDP broadcast on ports 9 and 7."""
+    hexmac = re.sub(r"[^0-9a-fA-F]", "", mac)
+    if len(hexmac) != 12:
+        raise ValueError("bad MAC address")
+    pkt = b"\xff" * 6 + bytes.fromhex(hexmac) * 16
+    targets = {"255.255.255.255"}
+    try:
+        targets |= {str(ipaddress.ip_network(n).broadcast_address) for n in _local_nets()}
+    except OSError:
+        pass
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        for t in targets:
+            for port in (9, 7):
+                s.sendto(pkt, (t, port))
+    return sorted(targets)
+
+
 def devices():
     now = time.time()
     rows = store.q("SELECT * FROM devices ORDER BY trusted, last_seen DESC")

@@ -9,6 +9,8 @@ from datetime import datetime
 import analytics
 import disks
 import netradar
+import security
+import sitemon
 import store
 import webpush
 
@@ -29,9 +31,18 @@ RULES = {
     "device":    ("New device on network", "warning", True, {}, "An unknown device joins your home network."),
     "internet":  ("Internet outage", "critical", True, {}, "Internet unreachable for 3 checks in a row, plus a recovery notice."),
     "speed":     ("Slow internet", "warning", False, {"down": 50}, "Scheduled speed test below the download limit (Mbps)."),
+    "site":      ("Website down", "critical", True, {}, "A monitored website fails 2 checks in a row (error, timeout or HTTP 4xx/5xx), plus a recovery notice."),
+    "slow":      ("Website slow", "warning", False, {"ms": 3000}, "A monitored website responds slower than the limit (milliseconds)."),
+    "cert":      ("Certificate expiring", "warning", True, {"days": 14}, "A monitored site's HTTPS certificate expires within the limit (days)."),
+    "buy":       ("Buy signal", "info", True, {}, "A tracked model's typical price drops to its lowest level in 90 days."),
+    "reboot":    ("Restart needed", "warning", True, {}, "Installed updates (usually the kernel) need a reboot to take effect."),
+    "updates":   ("Updates waiting", "info", False, {}, "Package updates are pending (security updates install automatically)."),
+    "ssh":       ("SSH login", "info", True, {}, "Someone signed in to the Pi over SSH."),
+    "sshfail":   ("SSH attack", "warning", True, {"fails": 5}, "Failed SSH logins in 10 minutes reach the limit."),
+    "probe":     ("Site probing", "warning", True, {"hits": 20}, "One visitor triggers this many error pages in 10 minutes (bots scanning for weaknesses)."),
     "daily":     ("Daily summary", "info", False, {"hour": 8}, "One morning summary: health, visitors, clicks, deals."),
 }
-SCHEDULE = {"net_scan_min": 10, "speedtest_hours": 6, "smart_min": 30}
+SCHEDULE = {"net_scan_min": 10, "speedtest_hours": 6, "smart_min": 30, "site_min": 5, "security_hours": 6}
 
 
 def config():
@@ -119,7 +130,7 @@ class Watcher:
         self.hot = 0
         self.net_fail = 0
         self.net_down_since = None
-        self.next = {"scan": 0, "speed": time.time() + 600, "smart": 0, "net": 0, "log": 0, "daily": 0}
+        self.next = {"scan": 0, "speed": time.time() + 600, "smart": 0, "net": 0, "log": 0, "daily": 0, "site": 0, "sec": 60}
         threading.Thread(target=self._loop, daemon=True).start()
 
     def _save(self):
@@ -129,7 +140,7 @@ class Watcher:
         time.sleep(15)
         while True:
             for job in (self._system, self._units, self._jobs, self._net, self._scan, self._smart,
-                        self._speed, self._traffic, self._deals, self._daily):
+                        self._speed, self._traffic, self._deals, self._sites, self._security, self._buy, self._daily):
                 try:
                     job()
                 except Exception:  # noqa: BLE001
@@ -285,6 +296,68 @@ class Watcher:
                     seen.add(d["url"])
                     fire("deal", f"{d['model']} under ${w['max']:.0f}", f"${d['total']:.2f} · {d['title'][:80]}", url=d["url"], key="deal-" + d["url"][-40:], cooldown=0)
         self.state["deal_seen"] = list(seen)[-500:]
+
+    def _sites(self):
+        if time.time() < self.next["site"] or not sitemon.sites():
+            return
+        self.next["site"] = time.time() + config()["schedule"]["site_min"] * 60
+        rules = config()["rules"]
+        fails = self.state.setdefault("site_fails", {})
+        names = {x["url"]: x["name"] for x in sitemon.sites()}
+        for r in sitemon.check_all():
+            u, name = r["url"], names.get(r["url"], r["url"])
+            if not r["ok"]:
+                fails[u] = fails.get(u, 0) + 1
+                if fails[u] == 2:
+                    why = f"HTTP {r['code']}" if r["code"] else (r["err"] or "no response")
+                    fire("site", f"{name} is down", f"{why} · {u}", url="/#network", key="site-" + u, cooldown=0)
+            else:
+                if fails.get(u, 0) >= 2:
+                    fire("site", f"{name} is back up", f"Responding in {r['ms']} ms.", url="/#network", key="siteup-" + u, cooldown=0)
+                fails[u] = 0
+                if r["ms"] > rules["slow"]["params"]["ms"]:
+                    fire("slow", f"{name} is slow", f"{r['ms']} ms response (limit {rules['slow']['params']['ms']} ms).", url="/#network", key="slow-" + u, cooldown=3 * 3600)
+            if r["certDays"] is not None and r["certDays"] <= rules["cert"]["params"]["days"]:
+                fire("cert", f"{name} certificate expiring", f"HTTPS certificate expires in {r['certDays']:.0f} days.", url="/#network", key="cert-" + u, cooldown=86400)
+
+    def _security(self):
+        rules = config()["rules"]
+        now = time.time()
+        since = self.state.get("ssh_since", now - 600)
+        ev = security.ssh_events(since)
+        self.state["ssh_since"] = now
+        if ev:
+            log = store.get("ssh_log", []) + ev
+            store.put("ssh_log", [e for e in log if e["ts"] > now - 7 * 86400][-300:])
+            for e in ev:
+                if e["ok"]:
+                    fire("ssh", "SSH login", f"{e['user']} signed in from {e['ip']} ({e['method']}).", url="/#control", key=f"ssh-{e['ts']}", cooldown=0)
+        recent_fail = sum(1 for e in store.get("ssh_log", []) if not e["ok"] and e["ts"] > now - 600)
+        if recent_fail >= rules["sshfail"]["params"]["fails"]:
+            fire("sshfail", "Failed SSH logins", f"{recent_fail} failed SSH logins in 10 minutes.", url="/#control", key="sshfail", cooldown=3600)
+        lim = rules["probe"]["params"]["hits"]
+        for p in store.q("SELECT visitor, COUNT(*) n FROM hits WHERE kind='err' AND ts>? GROUP BY visitor HAVING n>=?", (now - 600, lim)):
+            fire("probe", "Site is being probed", f"One visitor hit {p['n']} error pages in 10 minutes (scanning for weaknesses). The site is static, so there's nothing to exploit.",
+                 url="/#control", key="probe-" + p["visitor"], cooldown=6 * 3600)
+        if now < self.next["sec"]:
+            return
+        self.next["sec"] = now + config()["schedule"]["security_hours"] * 3600
+        up = security.updates()
+        if up["pending"]:
+            fire("updates", "Updates waiting", f"{up['pending']} package updates ({up['security']} security).", url="/#control", key="updates", cooldown=86400)
+        if security.summary()["reboot"]:
+            fire("reboot", "Pi needs a restart", "Updates were installed that need a reboot to take effect.", url="/#control", key="reboot", cooldown=86400)
+
+    def _buy(self):
+        m = self.status_fn().get("market") or {}
+        if not m.get("ready") or m.get("demo"):
+            return
+        seen = self.state.setdefault("buy_seen", {})
+        for r in m.get("rows", []):
+            if r.get("signal") and seen.get(r["id"]) != r.get("day"):
+                seen[r["id"]] = r.get("day")
+                fire("buy", f"Buy signal: {r['name']}", f"Typical used price ${r['median']:.0f}, the lowest in 90 days.",
+                     url=r["url"], key="buy-" + r["id"], cooldown=0)
 
     def _daily(self):
         r = config()["rules"]["daily"]
