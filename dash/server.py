@@ -730,6 +730,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, {"ok": True, "message": f"Invite saved{' · ' + str(c['members']) + ' members' if c else ''}. The site shows it after the next rebuild."})
         if path == "/api/integrations/ebay":
             cid, sec = str(body.get("id", "")).strip(), str(body.get("secret", "")).strip()
+            if cid.upper().startswith("PRD-") and not sec.upper().startswith("PRD-"):
+                cid, sec = sec, cid  # pasted into the wrong boxes: App ID has "-PRD-" in the middle, Cert ID starts with "PRD-"
             if not re.match(r"^[A-Za-z0-9._-]{10,120}$", cid) or not re.match(r"^[A-Za-z0-9._-]{10,120}$", sec):
                 return self._json(400, {"ok": False, "message": "Paste the Production App ID and Cert ID exactly as eBay shows them"})
             if "SBX" in cid.upper():
