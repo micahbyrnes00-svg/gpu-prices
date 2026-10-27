@@ -433,6 +433,7 @@ def save_settings(new):
 
 # ---------------------------------------------------------------- http
 import analytics  # noqa: E402
+import integrations  # noqa: E402
 import ask  # noqa: E402
 import disks  # noqa: E402
 import monitor  # noqa: E402
@@ -609,8 +610,7 @@ class Handler(BaseHTTPRequestHandler):
             host = f"{dns}:8443" if dns else self._host()
             return self._json(200, {"token": widget_token(), "url": f"https://{host}/api/widget", "script": widget_script(host)})
         if path == "/api/integrations":
-            return self._json(200, {"discord": bool(env_get("DISCORD_WEBHOOK")), "amazonTag": env_get("AMAZON_TAG"),
-                                    "siteUrl": env_get("SITE_URL")})
+            return self._json(200, integrations.status(analytics.amazon_status(), bool(store.get("widget_token"))))
         if path == "/api/me":
             return self._json(200, {"login": self.headers.get("Tailscale-User-Login", "local"),
                                     "name": self.headers.get("Tailscale-User-Name", "")})
@@ -693,18 +693,49 @@ class Handler(BaseHTTPRequestHandler):
             widget_token(new=True)
             return self._json(200, {"ok": True, "message": "New widget key made. Update the script on your iPhone."})
         if path == "/api/integrations/discord":
+            key = body.get("key") or "DISCORD_WEBHOOK"
+            if key not in dict(integrations.DISCORD_KEYS):
+                return self._json(400, {"ok": False, "message": "Unknown channel"})
             url = str(body.get("url", "")).strip()
             if not url:
-                env_set("DISCORD_WEBHOOK", "")
-                return self._json(200, {"ok": True, "message": "Discord disconnected"})
+                env_set(key, "")
+                return self._json(200, {"ok": True, "message": "Channel disconnected"})
             if not re.match(r"^https://(discord|discordapp)\.com/api/webhooks/\d+/[\w-]+$", url):
                 return self._json(400, {"ok": False, "message": "That isn't a Discord webhook URL"})
             try:
                 discord_test(url)
             except Exception as e:  # noqa: BLE001
                 return self._json(400, {"ok": False, "message": f"Discord rejected it: {str(e)[:80]}"})
-            env_set("DISCORD_WEBHOOK", url)
+            env_set(key, url)
             return self._json(200, {"ok": True, "message": "Connected. Test message sent to Discord."})
+        if path == "/api/integrations/invite":
+            code = str(body.get("code", "")).strip().rstrip("/").rsplit("/", 1)[-1]
+            if code and not re.match(r"^[A-Za-z0-9-]{2,32}$", code):
+                return self._json(400, {"ok": False, "message": "Paste the invite link, like discord.gg/AbC123"})
+            env_set("DISCORD_INVITE", code)
+            c = integrations.discord_counts(force=True) if code else None
+            if c and c.get("error"):
+                return self._json(400, {"ok": False, "message": c["error"]})
+            store.put("rebuild_site", True) if code else None
+            return self._json(200, {"ok": True, "message": f"Invite saved{' · ' + str(c['members']) + ' members' if c else ''}. The site shows it after the next rebuild."})
+        if path == "/api/integrations/newsletter":
+            url = str(body.get("url", "")).strip()
+            if url and not url.startswith("https://"):
+                return self._json(400, {"ok": False, "message": "Paste the form's https:// address"})
+            env_set("NEWSLETTER_URL", url)
+            return self._json(200, {"ok": True, "message": "Saved. The signup form appears after the next site rebuild."})
+        if path == "/api/integrations/test":
+            which = body.get("id")
+            if which == "discord":
+                ok, msg = integrations.test_discord(body.get("key") or "DISCORD_WEBHOOK")
+            elif which == "ebay":
+                ok, msg = integrations.test_ebay()
+            elif which == "cloudflare":
+                c = integrations.site_check(env_get("SITE_URL") + "/", force=True)
+                ok, msg = c["ok"], f"Site answered {c.get('code') or c.get('error')}"
+            else:
+                return self._json(400, {"ok": False, "message": "Nothing to test"})
+            return self._json(200, {"ok": ok, "message": msg})
         if path == "/api/network/wake":
             try:
                 t = netradar.wake(body.get("mac", ""))

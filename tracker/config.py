@@ -35,6 +35,7 @@ AMAZON_TAG = os.environ.get("AMAZON_TAG", "")            # Amazon Associates tra
 ADSENSE_CLIENT = os.environ.get("ADSENSE_CLIENT", "")    # e.g. ca-pub-1234567890123456 (only after AdSense approval)
 DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK", "")  # Discord channel webhook URL for deal posts
 CONTACT_EMAIL = os.environ.get("CONTACT_EMAIL", "")
+DISCORD_INVITE = os.environ.get("DISCORD_INVITE", "").rsplit("/", 1)[-1]  # invite code, e.g. AbCd123
 NEWSLETTER_URL = os.environ.get("NEWSLETTER_URL", "")    # newsletter provider's embed form action (e.g. Buttondown), optional
 
 # Command used for AI summaries; prompt is passed on stdin. Empty = template text only.

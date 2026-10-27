@@ -37,6 +37,8 @@ nav{display:flex;overflow-x:auto;white-space:nowrap;scrollbar-width:none;flex:1}
 .verdict{font-size:26px;font-weight:800;margin:4px 0}.great{color:var(--down)}.good{color:var(--down)}.fair{color:var(--accent)}.high{color:var(--up)}
 .form{display:grid;gap:10px;max-width:560px}.form input,.form select,.form textarea{font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);width:100%}
 .bar{position:relative;height:12px;border-radius:6px;background:linear-gradient(90deg,var(--down),var(--accent) 50%,var(--up));margin:18px 0 6px}
+.navcta{background:#5865f2;color:#fff!important;padding:4px 10px;border-radius:99px;margin-left:4px}.navcta:hover{text-decoration:none;opacity:.9}
+.dcta{margin:8px 0 20px;border-left:3px solid #5865f2}
 .crumbs{font-size:13px;color:var(--mute);margin:16px 0 -14px}.crumbs a{color:var(--mute)}
 .news{margin:24px 0}.newsf{display:flex;gap:8px;flex-wrap:wrap}.newsf input[type=email]{flex:1;min-width:200px;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
 .newsf button{border:0;cursor:pointer;font:inherit}
@@ -145,6 +147,23 @@ def accessories_html(cat):
     return f'<h2>Often bought with it</h2><p>{links}</p><p class="k">Amazon links (new items).</p>'
 
 
+def discord_url():
+    return f"https://discord.gg/{config.DISCORD_INVITE}" if config.DISCORD_INVITE else ""
+
+
+def discord_cta(where="block"):
+    if not config.DISCORD_INVITE:
+        return ""
+    a = f'href="{E(discord_url())}" data-m="discord" rel="noopener" target="_blank"'
+    if where == "nav":
+        return f'<a class="navcta" {a}>Join Discord</a>'
+    if where == "inline":
+        return f'<a class="pill" {a}>💬 Get deals like these in Discord</a>'
+    return (f'<div class="card dcta"><b>Get new deals the moment they appear</b><p class="k" style="margin:4px 0 10px">'
+            f'Join the free deals Discord: a channel for each category, posted automatically from live listings.</p>'
+            f'<a class="btn" {a}>Join the deals Discord</a></div>')
+
+
 def newsletter_html(m=None):
     if not config.NEWSLETTER_URL:
         return ""
@@ -191,9 +210,9 @@ def page(title, desc, body, path, demo=False, jsonld=None, crumbs=None, og=None,
 {f'<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={E(config.ADSENSE_CLIENT)}" crossorigin="anonymous"></script>' if config.ADSENSE_CLIENT and not demo else ''}
 <style>{CSS}</style></head><body data-pt="{pt}">{banner}
 <header><div class="wrap"><a class="brand" href="index.html">{E(config.SITE_NAME)}</a>
-<nav>{NAV}<a href="guides.html">Guides</a><a href="report.html">Report</a><a href="check.html">Price check</a></nav></div></header>
+<nav>{NAV}<a href="guides.html">Guides</a><a href="report.html">Report</a><a href="check.html">Price check</a>{discord_cta("nav")}</nav></div></header>
 <main class="wrap">{body}</main>
-<footer class="wrap">{FOOTER_LINKS}Prices are eBay US fixed-price listings, including shipping, updated automatically.
+<footer class="wrap">{discord_cta()}{FOOTER_LINKS}Prices are eBay US fixed-price listings, including shipping, updated automatically.
 As an eBay Partner Network affiliate, this site may earn a commission from qualifying purchases made through its links.
 {'As an Amazon Associate I earn from qualifying purchases. ' if config.AMAZON_TAG else ''}
 <a href="about.html">How prices are calculated</a> · <a href="privacy.html">Privacy</a>.</footer>
@@ -242,6 +261,7 @@ def model_page(rep, summary, demo):
 <h2>Price history</h2><div class="chart">{chart_svg(rep['series'])}</div>
 {f'<h2>Market read</h2><div class="ai">{E(summary)}</div>' if summary else ''}
 <h2>Cheapest listings from well-rated sellers</h2>{listings}
+<p>{discord_cta("inline")}</p>
 {faq}
 {RELATED.get(m["id"], "")}
 {accessories_html(m["cat"])}
@@ -298,7 +318,7 @@ def index_page(reports, market, summary, demo):
 <p><a class="btn" href="check.html">Check a price</a></p>
 <div class="cards">{cards}</div>
 {f'<h2>This week</h2><div class="ai">{E(summary)}</div>' if summary else ''}
-<h2>Best deals right now</h2>{deals_html}
+<h2>Best deals right now</h2>{deals_html}<p>{discord_cta("inline")}</p>
 {HOME_GUIDES}
 {sections}
 {newsletter_html()}"""
@@ -323,6 +343,7 @@ def category_page(cat, reports, demo):
 {table(reports, cat)}
 <h2>Best {E(info['short'])} deals right now</h2>
 {f'<div class="scroll"><table class="tbl"><tr><th>Deal</th><th>Total</th><th>vs typical</th><th></th></tr>{deal_rows}</table></div>' if deal_rows else '<p class="sub">No standout deals right now.</p>'}
+<p>{discord_cta("inline")}</p>
 <p><a class="btn alt" href="check.html">Check a price</a></p>
 {CAT_GUIDES.get(cat, "")}
 {accessories_html(cat)}
@@ -367,6 +388,7 @@ fetch("data/index.json").then(function(r){return r.json()}).then(function(d){D=d
 $("t").addEventListener("input",function(){var m=match($("t").value);if(m){$("m").value=m.id;run()}});
 $("m").addEventListener("change",run);$("p").addEventListener("input",run);})();
 </script>"""
+    body += discord_cta()
     return page(f"Used Price Checker — Is It a Good Deal? | {config.SITE_NAME}",
                 "Check if a used GPU, CPU, RAM kit, SSD, monitor, console or iPhone is a good price, compared to live eBay market data.",
                 body, "check.html", demo, crumbs=[("Price check", None)], pt="check")

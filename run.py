@@ -61,6 +61,9 @@ def build(con, models, use_ai=True):
         n = discord.post_deals(con, reports)
         if n:
             print(f"Posted {n} new deals to Discord")
+        n = discord.post_signals(con, reports)
+        if n:
+            print(f"Posted {n} buy signals to Discord")
         from datetime import date as _d
         from tracker import pages
         if _d.today().weekday() == 6 and site.LAST_WEEK:  # Sundays: weekly report to Discord

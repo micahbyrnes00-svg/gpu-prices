@@ -86,7 +86,11 @@ const INFO = {
 <p><b>Admin ports:</b> a firewall rule (<code>iptables</code>) blocks Portainer, Cockpit, Glances and the raw site port from your home network, so only devices on your Tailscale network can reach them.</p>
 <p><b>SSH:</b> every successful remote login is reported, and repeated failed logins (someone guessing passwords) trigger an alert.</p>
 <p><b>Site probing:</b> bots constantly scan public websites for files like <code>/wp-admin</code> or <code>/.env</code>. The price site is plain static HTML with no login, database or scripts on the server, so those scans find nothing. Orbit counts them and alerts on heavy scanning.</p>`],
-  integrations: ["Integrations", `<p><b>Discord deal bot:</b> a <b>webhook</b> is a private address that lets a program post into one Discord channel without a bot account. After each price update, the Pi posts new deals there with your affiliate links. Paste the webhook URL here and Orbit checks it by sending a test message.</p>
+  discordint: ["Discord", `<p><b>Invite link:</b> paste your server's permanent invite (Server menu → Invite People → Edit invite link → Expire after: Never). It's public, so it's safe to show on the site. It appears as "Join the deals Discord" on every page, and Orbit uses it to count members and online users through Discord's public invite lookup.</p>
+<p><b>Channel webhooks:</b> each deals channel gets its own webhook (Edit Channel → Integrations → Webhooks → New Webhook → Copy Webhook URL). Deals go to their category's channel, and anything without a channel goes to #deals (main). The weekly report goes to #market-report. Webhook URLs work like passwords. They're stored only on the Pi and never shown again.</p>`],
+  newsletterint: ["Price-drop emails", `<p>Visitors type their email into a small form on the site, and the form sends it straight to your newsletter service (for example Buttondown, free up to 100 subscribers). Nothing is stored on the Pi. In Buttondown, find Settings → Embedding and copy the form's action URL (it looks like https://buttondown.com/api/emails/embed-subscribe/yourname), then paste it here. Each signup is tagged with the product page it came from.</p>`],
+  integrations: ["Integrations", `<p>Every outside service in one list: <b>ON</b> means connected and working, <b>CHECK</b> means connected but something needs attention, and <b>OFF</b> means not set up. ↗ opens that service's dashboard, and TEST runs a live check.</p>
+<p><b>Discord deal bot:</b> a <b>webhook</b> is a private address that lets a program post into one Discord channel without a bot account. After each price update, the Pi posts new deals there with your affiliate links. Paste the webhook URL here and Orbit checks it by sending a test message.</p>
 <p>The URL is stored only on the Pi, in a settings file only the Pi's user can read. Anyone with the URL could post to the channel, so keep it private. Delete the webhook in Discord to revoke it.</p>
 <p><b>Amazon Associates</b> and the <b>site address</b> come from the same settings file and are used when the site is rebuilt.</p>`],
   funnel: ["Revenue funnel", `<p>How visitors turn into money. <b>Visitors</b> are unique people on the price site. <b>Clicks</b> are taps on an eBay "View" button or an Amazon button. <b>Sales</b> and <b>earned</b> come from the eBay and Amazon earnings reports you import.</p>
@@ -328,7 +332,7 @@ let cur = "system";
 function onView(v) {
   cur = v;
   if (v === "network") { loadNetwork(); loadSites(); }
-  if (v === "market") { loadStatus(); loadMoney(); loadFunnel(); }
+  if (v === "market") { loadStatus(); loadMoney(); loadFunnel(); if (!window._dcGrowth) loadIntegrations(); }
   if (v === "alerts") { loadAlerts(); $("#alertDot").classList.remove("on"); try { localStorage.setItem("seenAlert", String(Date.now() / 1000)); } catch { } }
   if (v === "control") { loadStatus(); fillLogSources(); loadSecurity(); }
   if (v === "settings") { loadStatus(); loadAlerts(); loadIntegrations(); }
@@ -406,6 +410,7 @@ async function loadMoney() {
   $("#clickPages").innerHTML = li((m.clicksByPage || []).map(r => ({ ...r, pt: PT[r.pt] || r.pt })), "pt", "No clicks yet.");
   $("#topClicked").innerHTML = li(m.clicked.map(c => ({ ...c, model: c.model.startsWith("amz:") ? "Amazon · " + c.model.slice(4) : "eBay · " + (c.model || "listing") })), "model", "No clicks yet.");
   $("#earnEbay").textContent = usd(m.earnings.ebay); $("#earnAmz").textContent = usd(m.earnings.amazon); $("#amzClicks").textContent = m.amazonClicks7 ?? 0;
+  renderDcGrowth();
   const a = m.earnings.amazonStatus || {};
   $("#amzStatus").innerHTML = !a.tag ? `<div class="t"><span>Amazon Associates</span><span class="mini">not connected</span></div>` :
     `<div class="t"><span>Amazon Associates · ${esc(a.tag)}</span><span class="mini">${a.sales >= 3 ? "qualified" : a.daysLeft != null ? a.daysLeft + " days left" : ""}</span></div>
@@ -666,15 +671,44 @@ document.addEventListener("click", e => {
 /* ---------------- integrations ---------------- */
 async function loadIntegrations() {
   let d; try { d = await api("api/integrations"); } catch { return; }
-  $("#dcState").textContent = d.discord ? "ON" : "OFF"; $("#dcState").className = "badge " + (d.discord ? "on" : "");
-  $("#dcNote").textContent = d.discord ? "Posting new deals to your channel after each price update" : "Not connected";
-  $("#amzNote").textContent = d.amazonTag ? "Tracking ID " + d.amazonTag : "Not connected";
-  $("#siteNote").textContent = d.siteUrl || "--";
+  const st = { on: ["ON", "on"], warn: ["CHECK", "warn"], off: ["OFF", ""] };
+  $("#intList").innerHTML = d.items.map(i => `<div class="row"><div class="main"><div class="name">${esc(i.name)}</div><div class="meta wrapm">${esc(i.detail)}</div></div>
+    ${i.test ? `<button class="btn" data-itest="${esc(i.id)}">TEST</button>` : ""}
+    ${i.link ? `<a class="btn" href="${esc(i.link)}" target="_blank" rel="noopener" aria-label="Open ${esc(i.name)}">↗</a>` : ""}
+    <span class="badge ${st[i.state][1]}">${st[i.state][0]}</span></div>`).join("");
+  const c = d.discordCounts;
+  $("#dcCount").textContent = c && c.members != null ? `${c.members} MEMBERS` : "--";
+  $("#dcCount").className = "badge " + (c && c.members != null ? "on" : "");
+  if (document.activeElement !== $("#dcInvite")) $("#dcInvite").value = d.discordInvite ? "discord.gg/" + d.discordInvite : "";
+  $("#dcHooks").innerHTML = d.discordHooks.map(h => `<div class="row" data-hook="${esc(h.key)}"><div class="main"><div class="name">${esc(h.label)}</div>
+      <input type="password" autocomplete="off" placeholder="${h.set ? "Connected · paste to replace" : "Paste webhook URL"}" aria-label="Webhook for ${esc(h.label)}" class="hookin"></div>
+      ${h.set ? `<button class="btn" data-htest>TEST</button>` : ""}<button class="btn go" data-hsave>SAVE</button><span class="badge ${h.set ? "on" : ""}">${h.set ? "ON" : "OFF"}</span></div>`).join("");
+  window._dcGrowth = d.discordGrowth; renderDcGrowth();
 }
-$("#dcSave").addEventListener("click", async () => {
-  const r = await post("api/integrations/discord", { url: $("#dcUrl").value.trim() });
-  toast((r.ok ? "✓ " : "✗ ") + r.message); if (r.ok) $("#dcUrl").value = ""; loadIntegrations();
+function growthSpark(d) {
+  if (!d || d.length < 2) return "";
+  const lo = Math.min(...d), hi = Math.max(...d), r = hi - lo || 1;
+  const pts = d.map((v, i) => `${(i / (d.length - 1) * 100).toFixed(1)},${(24 - (v - lo) / r * 20).toFixed(1)}`).join(" ");
+  return `<svg class="sparkmini" viewBox="0 0 100 26" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="#7d8cff" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>`;
+}
+function renderDcGrowth() {
+  const g = window._dcGrowth, el = $("#dcGrowth"); if (!el) return;
+  el.innerHTML = g ? `<div class="t"><span>Discord · ${g.members} members</span><span class="mini">${g.week >= 0 ? "+" : ""}${g.week} this week</span></div>${growthSpark(g.series)}` : `<div class="t"><span>Discord</span><span class="mini">add the invite in Settings</span></div>`;
+}
+$("#intRefresh").addEventListener("click", loadIntegrations);
+document.addEventListener("click", async e => {
+  const t = e.target.closest("[data-itest]");
+  if (t) { t.textContent = "…"; const r = await post("api/integrations/test", { id: t.dataset.itest }); toast((r.ok ? "✓ " : "✗ ") + r.message); loadIntegrations(); return; }
+  const row = e.target.closest("[data-hook]"); if (!row) return;
+  const key = row.dataset.hook;
+  if (e.target.closest("[data-htest]")) { const r = await post("api/integrations/test", { id: "discord", key }); toast((r.ok ? "✓ " : "✗ ") + r.message); }
+  if (e.target.closest("[data-hsave]")) {
+    const url = row.querySelector(".hookin").value.trim(); if (!url) return toast("Paste the webhook URL first");
+    const r = await post("api/integrations/discord", { key, url }); toast((r.ok ? "✓ " : "✗ ") + r.message); if (r.ok) loadIntegrations();
+  }
 });
+$("#dcInviteSave").addEventListener("click", async () => { const r = await post("api/integrations/invite", { code: $("#dcInvite").value.trim() }); toast((r.ok ? "✓ " : "✗ ") + r.message); loadIntegrations(); });
+$("#nlSave").addEventListener("click", async () => { const r = await post("api/integrations/newsletter", { url: $("#nlUrl").value.trim() }); toast((r.ok ? "✓ " : "✗ ") + r.message); $("#nlUrl").value = ""; loadIntegrations(); });
 
 /* ---------------- Ask Orbit ---------------- */
 const askHist = [];

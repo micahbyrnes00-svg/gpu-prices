@@ -27,6 +27,7 @@ RULES = {
     "deal":      ("Watchlist deal", "info", True, {}, "A listing hits a target price on your watchlist."),
     "money":     ("Money made", "info", True, {}, "New affiliate commission imported from eBay Partner Network."),
     "amazon":    ("Amazon deadline", "warning", True, {}, "Reminders at 60, 30 and 7 days left if Amazon Associates still needs its 3 qualifying sales."),
+    "discord":   ("New Discord members", "info", True, {}, "People joined your deals Discord (checked every 30 minutes, at most one alert a day)."),
     "click":     ("Affiliate click", "info", False, {}, "Someone clicked through to eBay from your site (can be chatty)."),
     "traffic":   ("Traffic spike", "info", True, {"visitors": 50}, "Unique site visitors in the last 24h reach the threshold."),
     "device":    ("New device on network", "warning", True, {}, "An unknown device joins your home network."),
@@ -142,7 +143,7 @@ class Watcher:
         time.sleep(15)
         while True:
             for job in (self._system, self._units, self._jobs, self._net, self._scan, self._smart,
-                        self._speed, self._traffic, self._deals, self._sites, self._security, self._buy, self._amazon, self._digest, self._daily):
+                        self._speed, self._traffic, self._deals, self._sites, self._security, self._buy, self._amazon, self._discord, self._digest, self._daily):
                 try:
                     job()
                 except Exception:  # noqa: BLE001
@@ -371,6 +372,21 @@ class Watcher:
                 fire("amazon", f"Amazon: {a['daysLeft']} days left", f"{a['sales']} of 3 qualifying sales so far. Without 3 sales by the deadline, Amazon closes the Associates account.",
                      url="/#market", key=f"amz-{mark}", cooldown=0)
                 break
+
+    def _discord(self):
+        if time.time() < self.next.get("discord", 0):
+            return
+        self.next["discord"] = time.time() + 1800
+        import integrations
+        c = integrations.discord_counts(force=True)
+        if not c or c.get("members") is None:
+            return
+        last = self.state.get("dc_members")
+        self.state["dc_members"] = c["members"]
+        if last is not None and c["members"] > last:
+            n = c["members"] - last
+            fire("discord", f"+{n} Discord member{'s' if n != 1 else ''}", f"Your deals server now has {c['members']} members ({c['online']} online).",
+                 url="/#market", key="discord-join", cooldown=86400)
 
     def _digest(self):
         r = config()["rules"]["digest"]
