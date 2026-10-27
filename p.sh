@@ -347,6 +347,9 @@ orbitupgrade)  # Orbit v3: push, network radar, drive health, money panel, logs,
   bash "$0" dashinstall
   sleep 3; curl -s -o /dev/null -w "app api: %{http_code} (403 = locked to your login)\n" http://127.0.0.1:8099/api/alerts
   ;;
+runprices)  # start a price update now (no password: allowed by the Orbit sudo rule)
+  sudo -n /usr/bin/systemctl start --no-block gpu-prices.service && echo "Price update started (15-30 min)"
+  ;;
 setinvite)  # save the Discord invite code (VNC can't type capitals, so the default is built in)
   [ -f .env ] || cp .env.example .env
   v="${2:-vwnb8CMxQB}"
