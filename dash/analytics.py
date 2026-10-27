@@ -49,8 +49,10 @@ def ingest():
             if bot and e.get("status", 200) < 400:
                 continue
             if path == "/c":  # affiliate click beacon from the site
-                model = parse_qs(urlparse(uri).query).get("m", [""])[0][:60]
-                rows.append((ts, path, ref_host, visitor, e.get("status", 0), "click", model))
+                qd = parse_qs(urlparse(uri).query)
+                model = qd.get("m", [""])[0][:60]
+                ptype = re.sub(r"[^a-z]", "", qd.get("p", ["page"])[0])[:12] or "page"
+                rows.append((ts, "/c/" + ptype, ref_host, visitor, e.get("status", 0), "click", model))
             elif e.get("status", 200) < 400 and not ASSET.search(path) and req.get("method") == "GET":
                 rows.append((ts, path, ref_host, visitor, e.get("status", 200), "view", ""))
             elif 400 <= e.get("status", 200) < 500 and path not in ("/favicon.ico", "/robots.txt", "/apple-touch-icon.png"):
@@ -76,13 +78,15 @@ def summary(own_host=""):
     refs = store.q("SELECT ref, COUNT(*) n FROM hits WHERE kind='view' AND ts>? AND ref!='' AND ref!=? GROUP BY ref ORDER BY n DESC LIMIT 6",
                    (now - 7 * 86400, own_host))
     clicked = store.q("SELECT model, COUNT(*) n FROM hits WHERE kind='click' AND ts>? GROUP BY model ORDER BY n DESC LIMIT 6", (now - 30 * 86400,))
+    by_page = store.q("SELECT REPLACE(path,'/c/','') pt, COUNT(*) n FROM hits WHERE kind='click' AND ts>? AND path LIKE '/c/%' GROUP BY path ORDER BY n DESC",
+                      (now - 30 * 86400,))
     amz7 = one("SELECT COUNT(*) c FROM hits WHERE kind='click' AND model LIKE 'amz:%' AND ts>?", (now - 7 * 86400,))
     daily = store.q("SELECT CAST((ts/86400) AS INT) d, COUNT(DISTINCT visitor) u FROM hits WHERE kind='view' AND ts>? GROUP BY d ORDER BY d",
                     (now - 30 * 86400,))
     earn = earnings_summary()
     return {"today": today, "week": week, "clicks7": clicks.get("c", 0), "clicksToday": clicks_today.get("c", 0),
             "pages": pages, "refs": refs, "clicked": clicked, "dailyVisitors": [r["u"] for r in daily],
-            "earnings": earn, "logFound": LOG.exists(), "amazonClicks7": amz7.get("c", 0)}
+            "earnings": earn, "logFound": LOG.exists(), "amazonClicks7": amz7.get("c", 0), "clicksByPage": by_page}
 
 
 def _env(key):

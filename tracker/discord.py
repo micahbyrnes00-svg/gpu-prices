@@ -73,3 +73,23 @@ def post_deals(con, reports, limit=10):
         con.execute("INSERT OR IGNORE INTO posted VALUES (?,?)", (d["item_id"], time.time()))
     con.commit()
     return posted
+
+
+def post_report(con, week, summary, drops, lows):
+    """Post the weekly market report link once per ISO week."""
+    if not config.DISCORD_WEBHOOK:
+        return False
+    con.execute("CREATE TABLE IF NOT EXISTS posted (item_id TEXT PRIMARY KEY, ts REAL)")
+    key = f"report-{week}"
+    if con.execute("SELECT 1 FROM posted WHERE item_id=?", (key,)).fetchone():
+        return False
+    lines = [f"**{r['model']['name']}** ${r['current']['median']:,.0f} (▼ {abs(r['chg_7d']):.1f}% this week)" for r in drops if r["chg_7d"] < 0][:5]
+    lines += [f"**{r['model']['name']}** at a 90-day low: ${r['current']['median']:,.0f}" for r in lows][:3]
+    desc = ((summary or "")[:600] + "\n\n" if summary else "") + "\n".join(lines)
+    ok = _send({"username": config.SITE_NAME[:80], "embeds": [{
+        "title": f"Used tech market report — week {week}", "url": f"{config.SITE_URL}/report.html",
+        "description": desc[:3800] or "This week's price moves and deals.", "color": 0x2457D6}]})
+    if ok:
+        con.execute("INSERT OR IGNORE INTO posted VALUES (?,?)", (key, time.time()))
+        con.commit()
+    return ok

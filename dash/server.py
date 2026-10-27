@@ -390,6 +390,9 @@ def act(body):
     elif a == "update_app":
         code, out = sh(["git", "-C", str(REPO), "pull", "--ff-only", "-q"], 60)
         if code == 0:
+            # rebuild the site with the new code: real data if collected, otherwise the demo preview
+            store.put("rebuild_site", True)  # done after the restart, so the restart can't cut it short
+            out = (out or "") + " Site rebuilds in the background after the restart (1-3 min)."
             threading.Timer(1.0, lambda: sh(SUDO_SYSTEMCTL + ["restart", "picommand.service"], 30)).start()
     elif a == "apply_updates":
         code, out = sh(SUDO_SYSTEMCTL + ["start", "--no-block", "apt-daily-upgrade.service"], 10)
@@ -767,7 +770,17 @@ class Handler(BaseHTTPRequestHandler):
             return
 
 
+def rebuild_if_pending():
+    if not store.get("rebuild_site"):
+        return
+    store.put("rebuild_site", False)
+    real = (Path(env_get("DATA_DIR") or REPO / "data") / "prices.db").exists()
+    subprocess.Popen(["python3", "run.py"] + (["build", "--no-ai"] if real else ["demo", "--no-ai"]), cwd=str(REPO),
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
 if __name__ == "__main__":
+    rebuild_if_pending()
     srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     srv.daemon_threads = True
     print(f"Pi Command on http://127.0.0.1:{PORT}  allowed={ALLOWED_LOGIN or 'ANY (local test)'}")

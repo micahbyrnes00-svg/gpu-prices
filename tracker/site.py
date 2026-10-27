@@ -37,6 +37,14 @@ nav{display:flex;overflow-x:auto;white-space:nowrap;scrollbar-width:none;flex:1}
 .verdict{font-size:26px;font-weight:800;margin:4px 0}.great{color:var(--down)}.good{color:var(--down)}.fair{color:var(--accent)}.high{color:var(--up)}
 .form{display:grid;gap:10px;max-width:560px}.form input,.form select,.form textarea{font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);width:100%}
 .bar{position:relative;height:12px;border-radius:6px;background:linear-gradient(90deg,var(--down),var(--accent) 50%,var(--up));margin:18px 0 6px}
+.crumbs{font-size:13px;color:var(--mute);margin:16px 0 -14px}.crumbs a{color:var(--mute)}
+.news{margin:24px 0}.newsf{display:flex;gap:8px;flex-wrap:wrap}.newsf input[type=email]{flex:1;min-width:200px;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+.newsf button{border:0;cursor:pointer;font:inherit}
+.flinks{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:4px 16px;margin-bottom:16px}.flinks b{display:block;color:var(--ink);margin:8px 0 4px}.flinks a{display:block;color:var(--mute);padding:2px 0}
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:12px}.vs .card h3{margin:0 0 6px;font-size:17px}
+.rank{counter-reset:r}.rank .card{display:flex;gap:14px;align-items:center;margin-bottom:10px}.rank .card:before{counter-increment:r;content:counter(r);font:800 22px system-ui;color:var(--accent);min-width:28px}
+.rank .grow{flex:1;min-width:0}.rank .card .btn{white-space:nowrap}
+@media (max-width:600px){.vs{grid-template-columns:1fr}.rank .card{flex-wrap:wrap}}
 .bar i{position:absolute;top:-5px;width:4px;height:22px;background:var(--ink);border-radius:2px}
 @media (max-width:600px){.cards{grid-template-columns:1fr 1fr}.hide-sm{display:none}.tbl th,.tbl td{padding:8px}h1{font-size:24px}}
 """
@@ -91,6 +99,59 @@ FAVICON = ("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox
 
 NAV = ""
 CATS = {}
+FOOTER_LINKS = ""
+RELATED = {}       # model id -> html block: similar models and comparisons
+CAT_GUIDES = {}    # category -> html list of guides/comparisons
+HOME_GUIDES = ""   # homepage guides block
+OG = {}            # page key -> og image path
+LAST_WEEK = None
+
+# Accessory searches that pair with each category (Amazon, only when AMAZON_TAG is set)
+ACCESSORIES = {
+    "gpu": [("850W power supply", "850W ATX 3.0 power supply"), ("PCIe 16-pin power cable", "12VHPWR 16 pin cable"), ("GPU support bracket", "GPU support bracket")],
+    "cpu": [("CPU air cooler", "CPU air cooler"), ("Thermal paste", "thermal paste"), ("AM5 / LGA1700 motherboards", "AM5 LGA1700 motherboard")],
+    "ram": [("Desktop RAM (new)", "DDR5 32GB desktop memory kit")],
+    "ssd": [("NVMe enclosure (USB-C)", "NVMe SSD enclosure USB C"), ("M.2 heatsink", "M.2 SSD heatsink"), ("SATA cable & bracket", "2.5 inch SSD bracket SATA cable")],
+    "monitor": [("Monitor arm", "monitor arm"), ("DisplayPort 1.4 cable", "DisplayPort 1.4 cable")],
+    "console": [("Extra controller", "PS5 DualSense Xbox wireless controller"), ("Storage expansion", "PS5 NVMe SSD Xbox storage expansion card"), ("Charging station", "controller charging station")],
+    "phone": [("iPhone case", "iPhone case MagSafe"), ("USB-C / MagSafe charger", "MagSafe charger 20W USB C"), ("Screen protector", "iPhone tempered glass screen protector")],
+}
+
+
+def ebay_search_url(query):
+    """eBay search link carrying the EPN campaign id (paid on any qualifying purchase in the session)."""
+    from urllib.parse import urlencode
+    q = {"_nkw": query, "LH_ItemCondition": "3000", "LH_BIN": "1"}
+    if config.EPN_CAMPAIGN_ID:
+        q.update({"mkcid": "1", "mkrid": "711-53200-19255-0", "siteid": "0", "campid": config.EPN_CAMPAIGN_ID,
+                  "customid": config.EPN_REFERENCE_ID, "toolid": "10001", "mkevt": "1"})
+    return "https://www.ebay.com/sch/i.html?" + urlencode(q)
+
+
+def amazon_search(q):
+    from urllib.parse import quote_plus
+    return f"https://www.amazon.com/s?k={quote_plus(q)}&tag={quote_plus(config.AMAZON_TAG)}"
+
+
+def aff(url, label, beacon, cls="btn"):
+    return f'<a class="{cls}" data-m="{E(beacon)}" href="{E(url)}" rel="sponsored nofollow noopener" target="_blank">{label}</a>'
+
+
+def accessories_html(cat):
+    if not config.AMAZON_TAG or cat not in ACCESSORIES:
+        return ""
+    links = "".join(f'<a class="pill" data-m="amz:acc-{cat}" href="{E(amazon_search(q))}" rel="sponsored nofollow noopener" target="_blank">{E(n)} ↗</a>'
+                    for n, q in ACCESSORIES[cat])
+    return f'<h2>Often bought with it</h2><p>{links}</p><p class="k">Amazon links (new items).</p>'
+
+
+def newsletter_html(m=None):
+    if not config.NEWSLETTER_URL:
+        return ""
+    what = f"the {E(m['name'])}" if m else "the models you care about"
+    return f"""<div class="card news"><b>Get price-drop emails</b><p class="k" style="margin:4px 0 10px">A short email when prices on {what} fall. Unsubscribe anytime.</p>
+<form action="{E(config.NEWSLETTER_URL)}" method="post" target="_blank" class="newsf"><input type="email" name="email" required placeholder="you@example.com" aria-label="Email">
+<input type="hidden" name="tag" value="{E(m['id'] if m else 'site')}"><button class="btn" type="submit">Subscribe</button></form></div>"""
 
 
 def amazon_url(m):
@@ -105,26 +166,38 @@ def per_unit(rep):
     return unit, rep["per_gb"] * (1000 if unit == "TB" else 1)
 
 
-def page(title, desc, body, path, demo=False, jsonld=None):
+def page(title, desc, body, path, demo=False, jsonld=None, crumbs=None, og=None, pt="page"):
     canon = f"{config.SITE_URL}/{path}".replace("/index.html", "/")
     banner = '<div class="demo">DEMO DATA — not real prices</div>' if demo else ""
+    lds = jsonld if isinstance(jsonld, list) else ([jsonld] if jsonld else [])
+    crumb_html = ""
+    if crumbs:
+        trail = [("Home", "index.html")] + crumbs
+        crumb_html = '<nav class="crumbs" aria-label="Breadcrumb">' + ' <span aria-hidden="true">›</span> '.join(
+            f'<a href="{E(u)}">{E(n)}</a>' if u else f"<span>{E(n)}</span>" for n, u in trail) + "</nav>"
+        lds.append({"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
+            {"@type": "ListItem", "position": i + 1, "name": n, "item": f"{config.SITE_URL}/{u or path}".replace("/index.html", "/")}
+            for i, (n, u) in enumerate(trail)]})
+    body = crumb_html + body
+    og_tags = (f'<meta property="og:image" content="{config.SITE_URL}/{og}"><meta property="og:image:width" content="1200">'
+               f'<meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image">') if og else ""
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{E(title)}</title><meta name="description" content="{E(desc)}">
 <link rel="canonical" href="{canon}"><link rel="icon" href="{FAVICON}">
-{'<script type="application/ld+json">' + json.dumps(jsonld) + '</script>' if jsonld else ''}
-<meta property="og:title" content="{E(title)}"><meta property="og:description" content="{E(desc)}"><meta property="og:type" content="website">
+{"".join('<script type="application/ld+json">' + json.dumps(x) + '</script>' for x in lds)}
+<meta property="og:title" content="{E(title)}">{og_tags}<meta property="og:url" content="{canon}"><meta property="og:description" content="{E(desc)}"><meta property="og:type" content="website">
 {'<meta name="robots" content="noindex">' if demo else ''}
 {f'<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={E(config.ADSENSE_CLIENT)}" crossorigin="anonymous"></script>' if config.ADSENSE_CLIENT and not demo else ''}
-<style>{CSS}</style></head><body>{banner}
+<style>{CSS}</style></head><body data-pt="{pt}">{banner}
 <header><div class="wrap"><a class="brand" href="index.html">{E(config.SITE_NAME)}</a>
-<nav>{NAV}<a href="check.html">Price check</a><a href="about.html">About</a></nav></div></header>
+<nav>{NAV}<a href="guides.html">Guides</a><a href="report.html">Report</a><a href="check.html">Price check</a></nav></div></header>
 <main class="wrap">{body}</main>
-<footer class="wrap">Prices are eBay US fixed-price listings, including shipping, updated automatically.
+<footer class="wrap">{FOOTER_LINKS}Prices are eBay US fixed-price listings, including shipping, updated automatically.
 As an eBay Partner Network affiliate, this site may earn a commission from qualifying purchases made through its links.
 {'As an Amazon Associate I earn from qualifying purchases. ' if config.AMAZON_TAG else ''}
 <a href="about.html">How prices are calculated</a> · <a href="privacy.html">Privacy</a>.</footer>
-<script>document.addEventListener("click",function(e){{var a=e.target.closest&&e.target.closest("a[data-m]");if(a&&navigator.sendBeacon)navigator.sendBeacon("/c?m="+encodeURIComponent(a.dataset.m))}});</script></body></html>"""
+<script>document.addEventListener("click",function(e){{var a=e.target.closest&&e.target.closest("a[data-m]");if(a&&navigator.sendBeacon)navigator.sendBeacon("/c?m="+encodeURIComponent(a.dataset.m)+"&p="+(document.body.dataset.pt||"page"))}});</script></body></html>"""
 
 
 def model_page(rep, summary, demo):
@@ -138,7 +211,8 @@ def model_page(rep, summary, demo):
     per_gb = f'<div class="card"><div class="k">Price per {unit}</div><div class="v">{money(per, 2)}</div></div>' if per else ""
     amazon = (f'<a class="btn alt" data-m="amz:{E(m["id"])}" href="{E(amazon_url(m))}" rel="sponsored nofollow noopener" target="_blank">Compare new on Amazon</a> '
               if config.AMAZON_TAG else "")
-    actions = f'<p>{amazon}<a class="btn alt" href="check.html?m={E(m["id"])}">Is my price good?</a></p>'
+    ebay_all = aff(ebay_search_url(m.get("query") or name), f"See all used {E(name)} on eBay", m["id"])
+    actions = f'<p>{ebay_all} {amazon}<a class="btn alt" href="check.html?m={E(m["id"])}">Is my price good?</a></p>'
     cards = f"""<div class="cards">
 <div class="card"><div class="k">Typical used price</div><div class="v">{money(cur['median'])}</div></div>
 <div class="card"><div class="k">Fair range</div><div class="v" style="font-size:20px">{fair}</div></div>
@@ -168,13 +242,23 @@ def model_page(rep, summary, demo):
 <h2>Price history</h2><div class="chart">{chart_svg(rep['series'])}</div>
 {f'<h2>Market read</h2><div class="ai">{E(summary)}</div>' if summary else ''}
 <h2>Cheapest listings from well-rated sellers</h2>{listings}
-{faq}"""
+{faq}
+{RELATED.get(m["id"], "")}
+{accessories_html(m["cat"])}
+{newsletter_html(m)}"""
     desc = f"Used {name} price today: typically {money(cur['median'])} ({fair}). Price history, trend and the best current eBay listings."
     ld = {"@context": "https://schema.org", "@type": "Product", "name": name,
           "description": f"Used {name} market price tracked daily from eBay listings.",
           "offers": {"@type": "AggregateOffer", "priceCurrency": "USD", "lowPrice": cur["low"],
                      "highPrice": cur["p75"], "offerCount": cur["n"], "itemCondition": "https://schema.org/UsedCondition"}}
-    return page(f"Used {name} Price Today — Fair Price & History", desc, body, f"{m['id']}.html", demo, ld)
+    faq_ld = {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
+        {"@type": "Question", "name": f"How much is a used {name} worth?",
+         "acceptedAnswer": {"@type": "Answer", "text": f"Most used {name} listings sell between {fair} including shipping; the typical price is {money(cur['median'])}."}},
+        {"@type": "Question", "name": f"What is a good price for a used {name}?",
+         "acceptedAnswer": {"@type": "Answer", "text": f"Anything under about {buy_under} from a well-rated seller is below most of the market."}}]}
+    crumbs = [(CATS.get(m["cat"], {}).get("label", "Prices"), f"{m['cat']}.html"), (name, None)]
+    return page(f"Used {name} Price Today: {money(cur['median'])} — Fair Price & History", desc, body, f"{m['id']}.html", demo,
+                [ld, faq_ld], crumbs, OG.get(m["id"]), "model")
 
 
 def table(reports, cat):
@@ -215,10 +299,12 @@ def index_page(reports, market, summary, demo):
 <div class="cards">{cards}</div>
 {f'<h2>This week</h2><div class="ai">{E(summary)}</div>' if summary else ''}
 <h2>Best deals right now</h2>{deals_html}
-{sections}"""
+{HOME_GUIDES}
+{sections}
+{newsletter_html()}"""
     return page(f"{config.SITE_NAME} — Today's Used Prices & Deals",
                 "Daily used price tracker for GPUs, CPUs, RAM, SSDs, monitors, consoles and iPhones: fair prices, history, trends and the best current deals.",
-                body, "index.html", demo)
+                body, "index.html", demo, og=OG.get("home"), pt="home")
 
 
 def category_page(cat, reports, demo):
@@ -237,10 +323,13 @@ def category_page(cat, reports, demo):
 {table(reports, cat)}
 <h2>Best {E(info['short'])} deals right now</h2>
 {f'<div class="scroll"><table class="tbl"><tr><th>Deal</th><th>Total</th><th>vs typical</th><th></th></tr>{deal_rows}</table></div>' if deal_rows else '<p class="sub">No standout deals right now.</p>'}
-<p><a class="btn alt" href="check.html">Check a price</a></p>"""
+<p><a class="btn alt" href="check.html">Check a price</a></p>
+{CAT_GUIDES.get(cat, "")}
+{accessories_html(cat)}
+{newsletter_html()}"""
     title = f"Used {info['short']} Prices Today — Fair Prices, History & Deals" if cat != "phone" else "Used iPhone Prices Today — Unlocked iPhone Values & Deals"
     return page(title, f"What used {info['label'].lower()} cost right now: typical prices, trends and deals from live eBay listings.",
-                body, f"{cat}.html", demo)
+                body, f"{cat}.html", demo, crumbs=[(info["label"], None)], og=OG.get("cat-" + cat), pt="category")
 
 
 def check_page(demo):
@@ -280,7 +369,7 @@ $("m").addEventListener("change",run);$("p").addEventListener("input",run);})();
 </script>"""
     return page(f"Used Price Checker — Is It a Good Deal? | {config.SITE_NAME}",
                 "Check if a used GPU, CPU, RAM kit, SSD, monitor, console or iPhone is a good price, compared to live eBay market data.",
-                body, "check.html", demo)
+                body, "check.html", demo, crumbs=[("Price check", None)], pt="check")
 
 
 def privacy_page(demo):
@@ -306,6 +395,39 @@ def about_page(demo):
     return page(f"About — {config.SITE_NAME}", "How used tech prices are calculated.", body, "about.html", demo)
 
 
+def _share_images(out, reports, og, pages):
+    """Open Graph cards for the home, category, model and comparison pages (skipped if Pillow is missing)."""
+    OG.clear()
+    (out / "og").mkdir(exist_ok=True)
+    host = config.SITE_URL.split("//")[-1]
+    brand = f"{config.SITE_NAME} · {host}"
+    by = {r["model"]["id"]: r for r in reports}
+    live = [r for r in reports if r["current"]]
+    if not og.card(out / "og" / "home.png", "What used tech costs today", f"{len(live)} models",
+                   "GPUs · CPUs · RAM · SSDs · monitors · consoles · iPhones — updated daily", None, brand):
+        return
+    OG["home"] = "og/home.png"
+    for c, v in CATS.items():
+        reps = [r for r in live if r["model"]["cat"] == c]
+        if reps:
+            lo, hi = min(r["current"]["median"] for r in reps), max(r["current"]["median"] for r in reps)
+            og.card(out / "og" / f"cat-{c}.png", f"Used {v['label']} prices", f"{money(lo)}–{money(hi)}",
+                    f"{len(reps)} models tracked · typical used prices incl. shipping", None, brand)
+            OG["cat-" + c] = f"og/cat-{c}.png"
+    for r in live:
+        m, cur = r["model"], r["current"]
+        og.card(out / "og" / f"{m['id']}.png", f"Used {m['name']}", money(cur["median"]),
+                f"typical used · fair {money(cur['p25'])}–{money(cur['p75'])} · {cur['day']}",
+                [p["median"] for p in r["series"][-90:]], brand, r["chg_30d"])
+        OG[m["id"]] = f"og/{m['id']}.png"
+    for a, b in pages.PAIRS:
+        if a in by and b in by and by[a]["current"] and by[b]["current"]:
+            pid = pages.pair_id(a, b)
+            og.card(out / "og" / f"vs-{pid}.png", f"{by[a]['model']['name']} vs {by[b]['model']['name']}",
+                    f"{money(by[a]['current']['median'])} vs {money(by[b]['current']['median'])}", "typical used prices incl. shipping", None, brand)
+            OG["vs-" + pid] = f"og/vs-{pid}.png"
+
+
 def _sync(src, dst):
     """Replace dst's contents with src's without removing dst itself (it may be a bind mount)."""
     dst.mkdir(parents=True, exist_ok=True)
@@ -327,6 +449,9 @@ def build(reports, summaries, demo, models=None):
     if out.exists():
         shutil.rmtree(out)
     (out / "data").mkdir(parents=True)
+    from . import og, pages
+    _share_images(out, reports, og, pages)
+    pages.prepare(reports)
     market_day = max((r["current"]["day"] for r in reports if r["current"]), default="—")
     (out / "index.html").write_text(index_page(reports, market_day, summaries.get("_market"), demo))
     (out / "about.html").write_text(about_page(demo))
@@ -348,8 +473,11 @@ def build(reports, summaries, demo, models=None):
         (out / "data" / f"{r['model']['id']}.json").write_text(json.dumps({
             "model": r["model"]["name"], "current": r["current"], "change_7d": r["chg_7d"],
             "change_30d": r["chg_30d"], "history": r["series"][-365:]}, indent=1))
+    extra, week = pages.write_all(out, reports, summaries, demo)
+    global LAST_WEEK
+    LAST_WEEK = week
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    urls = ["", "check.html", "about.html", "privacy.html"] + [f"{c}.html" for c in cats_used] + [f"{r['model']['id']}.html" for r in reports]
+    urls = ["", "check.html", "about.html", "privacy.html"] + [f"{c}.html" for c in cats_used] + [f"{r['model']['id']}.html" for r in reports] + extra
     (out / "sitemap.xml").write_text(
         '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
         + "".join(f"<url><loc>{config.SITE_URL}/{u}</loc><lastmod>{now}</lastmod></url>\n" for u in urls)

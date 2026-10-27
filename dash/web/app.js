@@ -61,7 +61,7 @@ const INFO = {
 <p>Devices found on the first scan are marked trusted. Any new device after that is flagged and triggers an alert. Tap a name to rename it, ✓ to trust it, or ✕ to forget it. The radar only observes and doesn't block or change other devices.</p>`],
   money: ["Money & traffic", `<p><b>Two income sources.</b> Every "View" button on the price site is an <b>eBay Partner Network</b> affiliate link, and every model page has a "Compare new on Amazon" button carrying your <b>Amazon Associates</b> tracking ID. When a visitor buys after clicking, that store pays a commission. The price is the same for the buyer.</p>
 <p><b>Traffic</b> comes from the web server's access log, which records each page request. To count unique visitors without storing anyone's IP address, Orbit keeps only a one-way hash that changes daily. Known bots and crawlers are filtered out.</p>
-<p><b>Clicks:</b> when a visitor taps an eBay or Amazon button, the site sends a tiny tracking request (<code>/c</code>), so you can see which products and which store get interest.</p>
+<p><b>Clicks:</b> when a visitor taps an eBay or Amazon button, the site sends a tiny tracking request (<code>/c</code>), so you can see which products and which store get interest. <b>Clicks by page type</b> shows which kind of page sends buyers: model pages, buying guides, comparisons, the weekly report and so on. Write more of whatever works.</p>
 <p><b>Earnings:</b> neither program offers a live earnings feed, so reports are imported. For eBay, download the <i>Transaction Detail Report</i> from the EPN portal. For Amazon, open Associates Central → Reports, choose <i>Earnings</i> and download the CSV. Tap Import and pick either file: Orbit detects which store it came from, skips duplicates and sends a "Money made" notification.</p>
 <p><b>Amazon's 180-day rule:</b> a new Associates account must refer 3 qualifying sales within 180 days of signing up, or Amazon closes it. The orange bar tracks progress, and you get reminders at 60, 30 and 7 days left.</p>`],
   push: ["Push notifications", `<p>Orbit sends notifications with the <b>Web Push</b> standard. The phone registers with its platform's push service (Apple's, on iPhone), and the Pi sends each message there for delivery.</p>
@@ -402,6 +402,8 @@ async function loadMoney() {
   const li = (rows, k, empty) => rows.length ? rows.map(r => `<div class="row"><div class="main"><div class="name">${esc(r[k] || "(direct)")}</div></div><div class="num">${r.n}</div></div>`).join("") : `<div class="meta">${empty}</div>`;
   $("#topPages").innerHTML = li(m.pages, "path", "No visits yet.");
   $("#topRefs").innerHTML = li(m.refs, "ref", "No referrers yet.");
+  const PT = { model: "Model pages", category: "Category pages", guide: "Buying guides", compare: "Comparisons", report: "Market report", home: "Homepage", check: "Price checker", guides: "Guides index", page: "Other pages" };
+  $("#clickPages").innerHTML = li((m.clicksByPage || []).map(r => ({ ...r, pt: PT[r.pt] || r.pt })), "pt", "No clicks yet.");
   $("#topClicked").innerHTML = li(m.clicked.map(c => ({ ...c, model: c.model.startsWith("amz:") ? "Amazon · " + c.model.slice(4) : "eBay · " + (c.model || "listing") })), "model", "No clicks yet.");
   $("#earnEbay").textContent = usd(m.earnings.ebay); $("#earnAmz").textContent = usd(m.earnings.amazon); $("#amzClicks").textContent = m.amazonClicks7 ?? 0;
   const a = m.earnings.amazonStatus || {};

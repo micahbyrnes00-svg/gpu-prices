@@ -61,6 +61,15 @@ def build(con, models, use_ai=True):
         n = discord.post_deals(con, reports)
         if n:
             print(f"Posted {n} new deals to Discord")
+        from datetime import date as _d
+        from tracker import pages
+        if _d.today().weekday() == 6 and site.LAST_WEEK:  # Sundays: weekly report to Discord
+            live = [r for r in reports if r["current"] and r["chg_7d"] is not None]
+            drops = sorted(live, key=lambda r: r["chg_7d"])
+            lows = [r for r in reports if r["current"] and len(r["series"]) >= 15
+                    and r["current"]["median"] <= min(p["median"] for p in r["series"][-91:-1])]
+            if discord.post_report(con, site.LAST_WEEK, summaries.get("_market"), drops, lows):
+                print("Posted weekly report to Discord")
 
 
 def main():

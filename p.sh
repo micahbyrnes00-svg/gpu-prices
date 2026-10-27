@@ -179,7 +179,7 @@ setenv)  # setenv KEY VALUE -> writes into .env (created from .env.example), chm
   sed -i '/^[a-z][a-z]*=/d' .env   # drop lowercase junk keys from VNC typing
   k=$(echo "$2" | tr a-z A-Z | tr -d '_')   # VNC can't type _ or capitals: accept "epncampaignid"
   case $k in EPNCAMPAIGNID) k=EPN_CAMPAIGN_ID;; EBAYCLIENTID) k=EBAY_CLIENT_ID;; EBAYCLIENTSECRET) k=EBAY_CLIENT_SECRET;;
-    AMAZONTAG) k=AMAZON_TAG;; AMAZONSIGNUP) k=AMAZON_SIGNUP;; ADSENSECLIENT) k=ADSENSE_CLIENT;; CONTACTEMAIL) k=CONTACT_EMAIL;; SITENAME) k=SITE_NAME;; SITEURL) k=SITE_URL;; *) k=$2;; esac
+    AMAZONTAG) k=AMAZON_TAG;; AMAZONSIGNUP) k=AMAZON_SIGNUP;; NEWSLETTERURL) k=NEWSLETTER_URL;; ADSENSECLIENT) k=ADSENSE_CLIENT;; CONTACTEMAIL) k=CONTACT_EMAIL;; SITENAME) k=SITE_NAME;; SITEURL) k=SITE_URL;; *) k=$2;; esac
   set -- "$1" "$k" "$3"
   if grep -q "^$2=" .env; then sed -i "s|^$2=.*|$2=$3|" .env; else echo "$2=$3" >> .env; fi
   grep "^$2=" .env | sed -E 's/(SECRET=|WEBHOOK=).+/\1*****/'
