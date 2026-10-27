@@ -275,6 +275,14 @@ dashtest)  # check the app backend answers (with and without your identity heade
   python3 dash/selftest.py "$login"
   for a in "restart wayvnc.service" "start --no-block gpu-prices.service"; do sudo -n -l /usr/bin/systemctl $a >/dev/null && echo "sudo rule ok: $a"; done
   ;;
+appcheck)  # why won't the app open?
+  dns=$(tailscale status --json | python3 -c 'import json,sys;print(json.load(sys.stdin)["Self"]["DNSName"].rstrip("."))')
+  echo "== serve config"; tailscale serve status
+  echo "== service: $(systemctl is-active picommand.service)  local: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8099/)"
+  echo "== via tailnet https: $(curl -s -o /dev/null -w '%{http_code} %{errormsg}' --max-time 40 https://$dns:8443/)"
+  echo "== cert: $(echo | timeout 20 openssl s_client -connect $dns:8443 -servername $dns 2>/dev/null | openssl x509 -noout -subject -enddate 2>/dev/null)"
+  echo "== peers"; tailscale status | head -5
+  ;;
 stats)  # health snapshot
   echo "== $(hostname)  $(cat /proc/device-tree/model 2>/dev/null | tr -d '\0')"
   uptime -p; echo "load: $(cut -d' ' -f1-3 /proc/loadavg)  cores: $(nproc)"
