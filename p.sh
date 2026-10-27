@@ -291,7 +291,8 @@ lockdown)  # admin tools (Portainer, Cockpit, Glances, raw site port) reachable 
   echo "LAN blocked: 9090 9443 8088 61208 (Tailscale and localhost unaffected)"
   ;;
 domain)  # bash p.sh domain example.com : serve the site on your own domain through a Cloudflare Tunnel (no open ports)
-  d=${2:-}; [ -n "$d" ] || { echo "usage: bash p.sh domain example.com  (domain must already be on your Cloudflare account)"; exit 1; }
+  d=${2:-}; [ -n "${3:-}" ] && d="$2.$3"   # "domain example com" works where a dot can't be typed (VNC)
+  [ -n "$d" ] || { echo "usage: bash p.sh domain example.com  (domain must already be on your Cloudflare account)"; exit 1; }
   if ! command -v cloudflared >/dev/null; then
     sudo mkdir -p --mode=0755 /usr/share/keyrings
     curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
