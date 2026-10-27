@@ -11,9 +11,9 @@ let settings = null, status = null, es = null;
 
 /* ---------------- info sheets: what each thing is and how it connects ---------------- */
 const INFO = {
-  overview: ["How it all fits together", `
+  overview: ["How Orbit fits together", `
 <p><b>The Pi</b> (Raspberry Pi 4, 4 GB) boots from the 2 TB Seagate. The SD card holds the old system as a last-resort fallback.</p>
-<p><b>This app</b> is a small Python service on the Pi (<code>picommand.service</code>) on port 8099, reachable only from the Pi itself. <code>tailscale serve</code> publishes it to your private Tailscale network over HTTPS. The service only answers requests that Tailscale has tagged with your login, so nobody else on the internet or your Wi-Fi can open it.</p>
+<p><b>Orbit</b> (this app) is a small Python service on the Pi (<code>picommand.service</code>) on port 8099, reachable only from the Pi itself. <code>tailscale serve</code> publishes it to your private Tailscale network over HTTPS. The service only answers requests that Tailscale has tagged with your login, so nobody else on the internet or your Wi-Fi can open it.</p>
 <p><b>The price site</b> works like this: every 6 hours <code>gpu-prices.timer</code> runs the tracker. It pulls listings from the official eBay API, stores them in SQLite, has Claude write short summaries, and rebuilds static pages in <code>/home/pi/site</code>. A Caddy web server in Docker serves those pages, and <b>Tailscale Funnel</b> makes them public at your ts.net address. Your router has no open ports.</p>
 <p><b>Money:</b> every "View on eBay" link carries your eBay Partner Network campaign ID, so qualifying purchases pay you a commission.</p>
 <p><b>Backups:</b> every Sunday <code>pi-cloud-backup.timer</code> compresses the whole system, encrypts it with your password, and uploads it to Google Drive. It keeps the last 4.</p>
@@ -101,7 +101,7 @@ function miniSpark(data) {
 /* ---------------- live stream ---------------- */
 const hist = { cpu: [], rx: [], tx: [] };
 function onLive(d) {
-  $("#host").textContent = `${d.host || "pi"} · ${(d.model || "").replace("Raspberry Pi", "RPi").replace(" Model B", "")}`;
+  $("#host").textContent = `by Micah · ${d.host || "pi"} · ${(d.model || "").replace("Raspberry Pi", "RPi").replace(" Model B", "")}`;
   $("#cpuVal").textContent = Math.round(d.cpu);
   setRing($("#cpuArc"), d.cpu / 100);
   $("#tempVal").innerHTML = d.temp != null ? `${d.temp.toFixed(1)}<small>°C</small>` : "--";

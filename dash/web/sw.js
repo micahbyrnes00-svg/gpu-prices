@@ -1,5 +1,5 @@
 // Network-first: always live data; cached shell only when the Pi is unreachable.
-const C = "picommand-v1", SHELL = ["./", "index.html", "style.css", "app.js", "icon.svg"];
+const C = "orbit-v2", SHELL = ["./", "index.html", "style.css", "app.js", "icon.svg"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(C).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener("activate", e => e.waitUntil(self.clients.claim()));
 self.addEventListener("fetch", e => {

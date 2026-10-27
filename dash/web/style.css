@@ -167,3 +167,6 @@ a.row{color:inherit}
 .gauge{padding-right:34px}
 .gauge .ring{width:62px;height:62px}
 .gv span{font-size:20px}
+
+.logoimg{width:40px;height:40px;border-radius:11px;box-shadow:0 0 22px var(--glow);object-fit:cover}
+.ring .arc{stroke-dasharray:1000;stroke-dashoffset:1000}
