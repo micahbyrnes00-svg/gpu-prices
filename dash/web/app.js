@@ -86,6 +86,8 @@ const INFO = {
 <p><b>Admin ports:</b> a firewall rule (<code>iptables</code>) blocks Portainer, Cockpit, Glances and the raw site port from your home network, so only devices on your Tailscale network can reach them.</p>
 <p><b>SSH:</b> every successful remote login is reported, and repeated failed logins (someone guessing passwords) trigger an alert.</p>
 <p><b>Site probing:</b> bots constantly scan public websites for files like <code>/wp-admin</code> or <code>/.env</code>. The price site is plain static HTML with no login, database or scripts on the server, so those scans find nothing. Orbit counts them and alerts on heavy scanning.</p>`],
+  ebaykeys: ["eBay API keys", `<p>The <b>Production</b> keyset from developer.ebay.com → Application Keys. The <b>App ID</b> identifies the app and the <b>Cert ID</b> is its password. Orbit sends both to eBay to check they work before saving, and stores them only on the Pi in a file only the Pi's user can read. They're never shown again.</p>
+<p>The keys let the Pi read public listings through eBay's official Browse API. They can't buy, sell or see anyone's account.</p>`],
   discordint: ["Discord", `<p><b>Invite link:</b> paste your server's permanent invite (Server menu → Invite People → Edit invite link → Expire after: Never). It's public, so it's safe to show on the site. It appears as "Join the deals Discord" on every page, and Orbit uses it to count members and online users through Discord's public invite lookup.</p>
 <p><b>Channel webhooks:</b> each deals channel gets its own webhook (Edit Channel → Integrations → Webhooks → New Webhook → Copy Webhook URL). Deals go to their category's channel, and anything without a channel goes to #deals (main). The weekly report goes to #market-report. Webhook URLs work like passwords. They're stored only on the Pi and never shown again.</p>`],
   newsletterint: ["Price-drop emails", `<p>Visitors type their email into a small form on the site, and the form sends it straight to your newsletter service (for example Buttondown, free up to 100 subscribers). Nothing is stored on the Pi. In Buttondown, find Settings → Embedding and copy the form's action URL (it looks like https://buttondown.com/api/emails/embed-subscribe/yourname), then paste it here. Each signup is tagged with the product page it came from.</p>`],
@@ -676,6 +678,8 @@ async function loadIntegrations() {
     ${i.test ? `<button class="btn" data-itest="${esc(i.id)}">TEST</button>` : ""}
     ${i.link ? `<a class="btn" href="${esc(i.link)}" target="_blank" rel="noopener" aria-label="Open ${esc(i.name)}">↗</a>` : ""}
     <span class="badge ${st[i.state][1]}">${st[i.state][0]}</span></div>`).join("");
+  const eb = d.items.find(i => i.id === "ebay");
+  if (eb) { $("#ebState").textContent = eb.state === "off" ? "NOT SET" : "SAVED"; $("#ebState").className = "badge " + (eb.state === "off" ? "" : "on"); }
   const c = d.discordCounts;
   $("#dcCount").textContent = c && c.members != null ? `${c.members} MEMBERS` : "--";
   $("#dcCount").className = "badge " + (c && c.members != null ? "on" : "");
@@ -708,6 +712,13 @@ document.addEventListener("click", async e => {
   }
 });
 $("#dcInviteSave").addEventListener("click", async () => { const r = await post("api/integrations/invite", { code: $("#dcInvite").value.trim() }); toast((r.ok ? "✓ " : "✗ ") + r.message); loadIntegrations(); });
+$("#ebSave").addEventListener("click", async () => {
+  const id = $("#ebId").value.trim(), secret = $("#ebSec").value.trim();
+  if (!id || !secret) return toast("Paste both the App ID and the Cert ID");
+  $("#ebSave").textContent = "…";
+  const r = await post("api/integrations/ebay", { id, secret }); $("#ebSave").textContent = "SAVE";
+  toast((r.ok ? "✓ " : "✗ ") + r.message); if (r.ok) { $("#ebId").value = ""; $("#ebSec").value = ""; } loadIntegrations();
+});
 $("#nlSave").addEventListener("click", async () => { const r = await post("api/integrations/newsletter", { url: $("#nlUrl").value.trim() }); toast((r.ok ? "✓ " : "✗ ") + r.message); $("#nlUrl").value = ""; loadIntegrations(); });
 
 /* ---------------- Ask Orbit ---------------- */

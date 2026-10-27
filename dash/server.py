@@ -718,6 +718,21 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(400, {"ok": False, "message": c["error"]})
             store.put("rebuild_site", True) if code else None
             return self._json(200, {"ok": True, "message": f"Invite saved{' · ' + str(c['members']) + ' members' if c else ''}. The site shows it after the next rebuild."})
+        if path == "/api/integrations/ebay":
+            cid, sec = str(body.get("id", "")).strip(), str(body.get("secret", "")).strip()
+            if not re.match(r"^[A-Za-z0-9._-]{10,120}$", cid) or not re.match(r"^[A-Za-z0-9._-]{10,120}$", sec):
+                return self._json(400, {"ok": False, "message": "Paste the Production App ID and Cert ID exactly as eBay shows them"})
+            if "SBX" in cid.upper():
+                return self._json(400, {"ok": False, "message": "Those are Sandbox keys. Use the Production keyset."})
+            old_id, old_sec = env_get("EBAY_CLIENT_ID"), env_get("EBAY_CLIENT_SECRET")
+            env_set("EBAY_CLIENT_ID", cid)
+            env_set("EBAY_CLIENT_SECRET", sec)
+            ok, msg = integrations.test_ebay()
+            if not ok:
+                env_set("EBAY_CLIENT_ID", old_id)
+                env_set("EBAY_CLIENT_SECRET", old_sec)
+                return self._json(400, {"ok": False, "message": "eBay rejected the keys: " + msg})
+            return self._json(200, {"ok": True, "message": "eBay accepted the keys. Ready to go live."})
         if path == "/api/integrations/newsletter":
             url = str(body.get("url", "")).strip()
             if url and not url.startswith("https://"):
