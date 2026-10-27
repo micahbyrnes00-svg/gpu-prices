@@ -248,7 +248,7 @@ monitor)  # live stats web app (Glances), reachable only on your tailnet over HT
 dashinstall)  # Pi Command iPhone app: service + limited sudo rules + private HTTPS on the tailnet
   login=$(tailscale status --json | python3 -c 'import json,sys;d=json.load(sys.stdin);print(d["User"][str(d["Self"]["UserID"])]["LoginName"])')
   [ -n "$login" ] || { echo "Could not read Tailscale login"; exit 1; }
-  units="gpu-prices.timer pi-cloud-backup.timer tailscaled.service docker.service wayvnc.service fieldpi-scan.service fieldpi-web.service matrixvms.service shairport-sync.service cockpit.socket picommand.service"
+  units="gpu-prices.timer pi-cloud-backup.timer tailscaled.service docker.service wayvnc.service fieldpi-scan.service fieldpi-web.service matrixvms.service shairport-sync.service cockpit.socket picommand.service cloudflared.service"
   tmp=$(mktemp)
   { echo "# Pi Command app: exact commands only"
     for u in $units; do for a in start stop restart; do echo "pi ALL=(root) NOPASSWD: /usr/bin/systemctl $a $u"; done; done
@@ -300,7 +300,7 @@ domain)  # bash p.sh domain example.com : serve the site on your own domain thro
     sudo apt-get update -qq && sudo apt-get install -y -qq cloudflared || { echo "cloudflared install failed"; exit 1; }
   fi
   [ -f ~/.cloudflared/cert.pem ] || { echo ">>> Open the link below, sign in to Cloudflare and click $d to authorize:"; cloudflared tunnel login || exit 1; }
-  cloudflared tunnel list -o json | python3 -c 'import json,sys;sys.exit(0 if any(t["name"]=="site" for t in json.load(sys.stdin)) else 1)' || cloudflared tunnel create site
+  cloudflared tunnel list -o json | python3 -c 'import json,sys;sys.exit(0 if any(t["name"]=="site" for t in (json.load(sys.stdin) or [])) else 1)' || cloudflared tunnel create site
   id=$(cloudflared tunnel list -o json | python3 -c 'import json,sys;print([t["id"] for t in json.load(sys.stdin) if t["name"]=="site"][0])')
   cloudflared tunnel route dns --overwrite-dns site "$d" && cloudflared tunnel route dns --overwrite-dns site "www.$d"
   sudo mkdir -p /etc/cloudflared && sudo cp ~/.cloudflared/"$id".json /etc/cloudflared/ && sudo chmod 600 /etc/cloudflared/"$id".json

@@ -31,7 +31,7 @@ ALLOWED_LOGIN = os.environ.get("ALLOWED_LOGIN", "")  # empty = allow any (local 
 
 UNITS = ["gpu-prices.timer", "pi-cloud-backup.timer", "tailscaled.service", "docker.service",
          "wayvnc.service", "fieldpi-scan.service", "fieldpi-web.service", "matrixvms.service",
-         "shairport-sync.service", "cockpit.socket", "picommand.service"]
+         "shairport-sync.service", "cockpit.socket", "picommand.service", "cloudflared.service"]
 DEFAULT_SETTINGS = {"accent": "cyan", "refresh": 2, "compact": False, "reduceMotion": False, "faceId": True,
                     "panels": {"system": True, "cores": True, "network": True, "market": True,
                                "services": True, "containers": True, "jobs": True, "links": True,
@@ -279,11 +279,11 @@ def market():
     sys.path.insert(0, str(REPO))
     from tracker import config as tcfg, db as tdb, stats as tstats  # noqa: E402
     if not tcfg.DB_PATH.exists():
-        return {"ready": False, "note": "Waiting for eBay keys and the first price run."}
+        return {"ready": False, "note": "Waiting for eBay keys and the first price run.", "site": tcfg.SITE_URL}
     con = tdb.connect()
     runs = con.execute("SELECT COUNT(*), MAX(ts), SUM(source='sample') FROM runs").fetchone()
     if not runs[0]:
-        return {"ready": False, "note": "No price runs yet."}
+        return {"ready": False, "note": "No price runs yet.", "site": tcfg.SITE_URL}
     models = tcfg.load_models()["models"]
     reps = [tstats.model_report(con, m) for m in models]
     site = tcfg.SITE_URL

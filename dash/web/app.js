@@ -235,7 +235,8 @@ function renderControl(s) {
   $("#containers").innerHTML = (s.containers || []).map(c => `<div class="row"><div class="main"><div class="name">${esc(c.name)}</div><div class="meta">${esc(c.image)} · ${esc(c.status)}</div></div><span class="badge ${c.state === "running" ? "on" : "off"}">${esc((c.state || "").toUpperCase())}</span><button class="btn" data-act="container_restart" data-target="${esc(c.name)}">↻</button></div>`).join("");
   const host = ts.dns || location.hostname;
   const links = [
-    ["Price site", ts.funnel ? "public · Funnel" : "private until go-live", `https://${host}/`],
+    ["Price site", s.market?.site && !s.market.site.includes("ts.net") && !s.market.site.includes("github.io") ? s.market.site.replace("https://", "") : ts.funnel ? "public · Funnel" : "private until go-live",
+      s.market?.site && !s.market.site.includes("github.io") ? s.market.site + "/" : `https://${host}/`],
     ["Glances", "deep system monitor", `https://${host}:10000/`],
     ["Portainer", "Docker admin", `https://${ts.ip || host}:9443/`],
     ["Cockpit", "Pi admin & terminal", `https://${ts.ip || host}:9090/`],
