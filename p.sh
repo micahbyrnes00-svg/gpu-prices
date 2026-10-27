@@ -347,6 +347,12 @@ orbitupgrade)  # Orbit v3: push, network radar, drive health, money panel, logs,
   bash "$0" dashinstall
   sleep 3; curl -s -o /dev/null -w "app api: %{http_code} (403 = locked to your login)\n" http://127.0.0.1:8099/api/alerts
   ;;
+setinvite)  # save the Discord invite code (VNC can't type capitals, so the default is built in)
+  [ -f .env ] || cp .env.example .env
+  v="${2:-vwnb8CMxQB}"
+  if grep -q "^DISCORD_INVITE=" .env; then sed -i "s|^DISCORD_INVITE=.*|DISCORD_INVITE=$v|" .env; else echo "DISCORD_INVITE=$v" >> .env; fi
+  chmod 600 .env; grep "^DISCORD_INVITE=" .env
+  ;;
 restartorbit)  # restart the Orbit app (no password: allowed by the Orbit sudo rule)
   sudo -n /usr/bin/systemctl restart picommand.service && sleep 2 && echo "Orbit: $(systemctl is-active picommand.service)"
   ;;
