@@ -283,14 +283,13 @@ appcheck)  # why won't the app open?
   echo "== cert: $(echo | timeout 20 openssl s_client -connect $dns:8443 -servername $dns 2>/dev/null | openssl x509 -noout -subject -enddate 2>/dev/null)"
   echo "== peers"; tailscale status | head -5
   ;;
-netfix)  # Pi is on Ethernet AND Wi-Fi in the same subnet -> flaky LAN paths. Wi-Fi only when Ethernet is down.
-  printf '%s\n' '#!/bin/sh' '# Wi-Fi is a fallback: off while Ethernet is connected, on when it drops.' \
-    'case "$1" in eth*) ;; *) exit 0;; esac' \
-    'case "$2" in up) nmcli radio wifi off;; down) nmcli radio wifi on;; esac' \
-    | sudo tee /etc/NetworkManager/dispatcher.d/70-wifi-fallback >/dev/null
-  sudo chmod 755 /etc/NetworkManager/dispatcher.d/70-wifi-fallback
-  if [ "$(cat /sys/class/net/eth0/carrier 2>/dev/null)" = 1 ]; then sudo nmcli radio wifi off; fi
-  sleep 3; ip -4 -br addr | grep -v '^lo'; nmcli radio wifi
+netfix)  # Pi is on Ethernet AND Wi-Fi in the same subnet: stop each NIC answering for the other's IP (ARP flux)
+  printf '%s\n' '# Two NICs on one subnet: answer ARP only on the owning interface' \
+    'net.ipv4.conf.all.arp_ignore=1' 'net.ipv4.conf.all.arp_announce=2' \
+    'net.ipv4.conf.all.rp_filter=2' 'net.ipv4.conf.default.rp_filter=2' \
+    | sudo tee /etc/sysctl.d/90-dual-nic.conf >/dev/null
+  sudo sysctl -q -p /etc/sysctl.d/90-dual-nic.conf && echo "applied"
+  ip -4 -br addr | grep -E 'eth|wlan'; ip route | grep default
   ;;
 stats)  # health snapshot
   echo "== $(hostname)  $(cat /proc/device-tree/model 2>/dev/null | tr -d '\0')"
