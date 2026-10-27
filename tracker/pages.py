@@ -129,7 +129,7 @@ def guide_page(g, reports, demo, month):
             extra.append(f"{money(per, 2)}/{unit}")
         c = _cheapest(r)
         buy = aff(c["url"], f"Cheapest: {money(c['total'], 0)}", m["id"]) if c and c.get("url") else ""
-        return (f'<div class="card"><div class="grow"><a href="{m["id"]}.html"><b>{E(m["name"])}</b></a>'
+        return (f'<div class="card"><div class="grow"><a href="{m["id"]}.html"><b>{E(m["name"])}</b></a>{site.track(cur, labels=False)}'
                 f'<div class="k">typical {money(cur["median"])} · fair {money(cur["p25"])}–{money(cur["p75"])} · 30d {chg(r["chg_30d"])}</div>'
                 f'{"<div class=k>" + " · ".join(extra) + "</div>" if extra else ""}</div>{buy}</div>')
 
@@ -206,7 +206,7 @@ def compare_page(a, b, demo, month):
         c = _cheapest(r)
         amz = aff(site.amazon_url(m), "New on Amazon", "amz:" + m["id"], "btn alt") if config.AMAZON_TAG else ""
         return (f'<div class="card"><h3><a href="{m["id"]}.html">{E(m["name"])}</a></h3>'
-                f'<div class="v">{money(cur["median"])}</div><div class="k">typical used · fair {money(cur["p25"])}–{money(cur["p75"])}</div>'
+                f'<div class="v">{money(cur["median"])}</div>{site.track(cur)}'
                 f'<div class="k">7d {chg(r["chg_7d"])} · 30d {chg(r["chg_30d"])}{" · performance " + str(PERF[m["id"]]) if PERF.get(m["id"]) else ""}</div>'
                 f'<p style="margin:10px 0 0">{aff(c["url"], "Cheapest " + money(c["total"]), m["id"]) + " " if c and c.get("url") else ""}'
                 f'{aff(ebay_search_url(m.get("query") or m["name"]), "All on eBay", m["id"], "btn alt")} {amz}</p></div>')
