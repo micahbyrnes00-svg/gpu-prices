@@ -31,7 +31,9 @@
 <main id="views">
   <!-- SYSTEM -->
   <section class="view active" id="view-system" aria-label="System">
-    <div class="panel hero" data-panel="system" data-info="cpu">
+    <div class="duo">
+    <div class="panel hero duo-card" data-panel="system" data-info="cpu">
+      <div class="duo-name">RASPBERRY PI</div>
       <div class="hero-ring">
         <svg viewBox="0 0 200 200" class="ring big" aria-hidden="true">
           <circle class="track" cx="100" cy="100" r="84"/>
@@ -48,6 +50,29 @@
       </div>
     </div>
 
+    <div class="panel hero duo-card" data-panel="system" data-info="fleet" id="tmHero">
+      <div class="duo-name">THEMACHINE <span class="mini" id="tm-state"></span></div>
+      <div class="hero-ring">
+        <svg viewBox="0 0 200 200" class="ring big" aria-hidden="true">
+          <circle class="track" cx="100" cy="100" r="84"/>
+          <circle class="arc" id="tm-cpuArc" cx="100" cy="100" r="84"/>
+          <circle class="tick" cx="100" cy="100" r="96"/>
+        </svg>
+        <div class="hero-val"><div class="hv"><span id="tm-cpuVal">--</span><small>%</small></div><div class="lbl">CPU LOAD</div></div>
+      </div>
+      <div class="hero-stats">
+        <div class="stat"><div class="k">TEMP</div><div class="v" id="tm-tempVal">--</div></div>
+        <div class="stat"><div class="k">CLOCK</div><div class="v" id="tm-clockVal">--</div></div>
+        <div class="stat"><div class="k">RAM</div><div class="v" id="tm-memVal">--</div></div>
+        <div class="stat"><div class="k">UPTIME</div><div class="v" id="tm-upVal">--</div></div>
+      </div>
+    </div>
+    </div>
+    <div class="panel" data-panel="system">
+      <div class="ph"><span>HOME LAB</span><span class="mini" id="fleetStatus">Connecting…</span><button class="info" data-info-btn="fleet" aria-label="How the two machines work together">i</button></div>
+      <div class="fleet-grid" id="fleetMachines"><div class="note">Connecting to your machines…</div></div>
+      <p class="fleet-caption">Two machines, one Orbit. Detailed gauges and controls below manage the Raspberry Pi.</p>
+    </div>
     <div class="grid2">
       <div class="panel gauge" data-panel="system" data-info="mem">
         <svg viewBox="0 0 120 120" class="ring" aria-hidden="true"><circle class="track" cx="60" cy="60" r="48"/><circle class="arc" id="memArc" cx="60" cy="60" r="48"/></svg>
@@ -82,6 +107,71 @@
     <div class="panel" data-panel="system" data-info="procs">
       <div class="ph"><span>TOP PROCESSES</span></div>
       <div class="list" id="procs"></div>
+    </div>
+  </section>
+
+  <!-- THEMACHINE -->
+  <section class="view" id="view-themachine" aria-label="themachine">
+    <div class="panel" data-panel="system">
+      <div class="ph"><span>THEMACHINE</span><span class="mini" id="machine-state">Connecting…</span><button class="info" data-info-btn="fleet" aria-label="How the two machines work together">i</button></div>
+      <p class="fleet-caption">Ubuntu server · Intel Celeron J3455 · apps, shared storage and backups. Read-only view; controls elsewhere manage the Pi.</p>
+    </div>
+    <div id="machine-content" hidden>
+      <div class="panel hero" data-panel="system">
+        <div class="hero-ring">
+          <svg viewBox="0 0 200 200" class="ring big" aria-hidden="true">
+            <circle class="track" cx="100" cy="100" r="84"/>
+            <circle class="arc" id="machine-cpuArc" cx="100" cy="100" r="84"/>
+            <circle class="tick" cx="100" cy="100" r="96"/>
+          </svg>
+          <div class="hero-val"><div class="hv"><span id="machine-cpuVal">--</span><small>%</small></div><div class="lbl">CPU LOAD</div></div>
+        </div>
+        <div class="hero-stats">
+          <div class="stat"><div class="k">TEMP</div><div class="v" id="machine-tempVal">--</div></div>
+          <div class="stat"><div class="k">CLOCK</div><div class="v" id="machine-clockVal">--</div></div>
+          <div class="stat"><div class="k">DATA</div><div class="v" id="machine-powerVal">--</div></div>
+          <div class="stat"><div class="k">UPTIME</div><div class="v" id="machine-upVal">--</div></div>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="panel gauge" data-panel="system">
+          <svg viewBox="0 0 120 120" class="ring" aria-hidden="true"><circle class="track" cx="60" cy="60" r="48"/><circle class="arc" id="machine-memArc" cx="60" cy="60" r="48"/></svg>
+          <div class="gv"><span id="machine-memVal">--</span><div class="lbl">MEMORY</div><div class="mini" id="machine-memSub"></div><div class="mini" id="machine-swap"></div></div>
+        </div>
+        <div class="panel gauge" data-panel="system">
+          <svg viewBox="0 0 120 120" class="ring" aria-hidden="true"><circle class="track" cx="60" cy="60" r="48"/><circle class="arc" id="machine-diskArc" cx="60" cy="60" r="48"/></svg>
+          <div class="gv"><span id="machine-diskVal">--</span><div class="lbl">SSD /</div><div class="mini" id="machine-diskSub"></div></div>
+        </div>
+      </div>
+      <div class="panel" data-panel="cores">
+        <div class="ph"><span>CORES</span><span class="mini" id="machine-loadVal">load --</span></div>
+        <div class="cores" id="machine-cores"></div>
+        <canvas class="spark" id="machine-cpuSpark" height="60" aria-label="themachine CPU history"></canvas>
+      </div>
+      <div class="panel" data-panel="network">
+        <div class="ph"><span>NETWORK</span><span class="mini">ethernet</span></div>
+        <div class="netrow">
+          <div><div class="k">▼ DOWN</div><div class="v" id="machine-rxVal">--</div></div>
+          <div><div class="k">▲ UP</div><div class="v" id="machine-txVal">--</div></div>
+        </div>
+        <canvas class="spark" id="machine-netSpark" height="60" aria-label="themachine network history"></canvas>
+      </div>
+      <div class="panel" data-panel="disks">
+        <div class="ph"><span>STORAGE</span></div>
+        <div class="list" id="machine-storage"></div>
+      </div>
+      <div class="panel" data-panel="disks">
+        <div class="ph"><span>DRIVE HEALTH</span><span class="mini">SMART · every 10 min</span></div>
+        <div id="machine-health"><div class="note">Drive health is awaiting its first check.</div></div>
+      </div>
+      <div class="panel" data-panel="system">
+        <div class="ph"><span>BACKUPS</span><span class="mini">restic → 4 TB</span></div>
+        <div class="note" id="machine-backup">--</div>
+      </div>
+      <div class="panel" data-panel="system">
+        <div class="ph"><span>TOP PROCESSES</span></div>
+        <div class="list" id="machine-procs"></div>
+      </div>
     </div>
   </section>
 
@@ -313,6 +403,7 @@
 
 <nav class="tabs" aria-label="Sections">
   <button data-view="system" class="on"><span class="ti">◎</span>System</button>
+  <button data-view="themachine"><span class="ti">▣</span>themachine</button>
   <button data-view="network"><span class="ti">⌖</span>Network</button>
   <button data-view="market"><span class="ti">◆</span>Market</button>
   <button data-view="alerts"><span class="ti">◉<i class="dotb" id="alertDot"></i></span>Alerts</button>
@@ -328,5 +419,7 @@
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="app.js"></script>
+<script src="machine.js"></script>
+<script src="fleet.js"></script>
 </body>
 </html>

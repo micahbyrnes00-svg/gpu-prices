@@ -451,8 +451,10 @@ import sitemon  # noqa: E402
 import store  # noqa: E402
 import webauthn  # noqa: E402
 import webpush  # noqa: E402
+import fleet  # noqa: E402
 
 SAMPLER = Sampler()
+FLEET = fleet.Fleet(STATE)
 WATCHER = monitor.Watcher(SAMPLER, status)
 LOG_UNITS = [u for u in UNITS] + ["gpu-prices.service", "pi-cloud-backup.service", "picommand.service"]
 GATED = {"reboot", "stop", "funnel_on", "funnel_off", "update_app", "apply_updates"}
@@ -570,6 +572,8 @@ class Handler(BaseHTTPRequestHandler):
         if not self._authed():
             return self._json(403, {"error": "not your tailnet identity"})
         path = urlparse(self.path).path
+        if path == "/api/fleet":
+            return self._json(200, FLEET.snapshot(SAMPLER.snapshot()))
         if path == "/api/stream":
             return self._stream()
         if path == "/api/live":

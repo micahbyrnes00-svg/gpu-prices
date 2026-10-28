@@ -130,7 +130,7 @@ input[type=range]{width:100%;accent-color:var(--a)}
 .tog input:checked{background:var(--a);box-shadow:0 0 12px var(--glow)}
 .tog input:checked::after{left:21px;background:#fff}
 
-.tabs{position:fixed;left:10px;right:10px;bottom:calc(10px + var(--safe-b));display:grid;grid-template-columns:repeat(6,1fr);
+.tabs{position:fixed;left:10px;right:10px;bottom:calc(10px + var(--safe-b));display:grid;grid-template-columns:repeat(7,1fr);
   background:rgba(8,12,20,.82);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--line);border-radius:20px;padding:6px;z-index:5}
 .tabs button{background:none;border:0;color:var(--mute);font:600 9px var(--mono);letter-spacing:.02em;min-width:0;padding:8px 0;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer}
 .tabs .ti{font-size:17px}
@@ -259,3 +259,43 @@ button.row{width:100%;background:none;border:0;color:inherit;font:inherit;text-a
 .hookin{margin-top:6px;width:100%;background:rgba(120,160,220,.08);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:7px 8px;font:12px var(--mono)}
 .dcg{background:rgba(88,101,242,.07)}
 .dcg .sparkmini{width:100%;height:26px;margin-top:6px}
+
+/* Two-machine home lab */
+.fleet-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.fleet-card{min-width:0;padding:15px;border:1px solid var(--line);border-radius:14px;background:var(--bg2)}
+.fleet-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.fleet-heading h3{margin:0;font-size:16px;letter-spacing:.01em}
+.fleet-state{font:10px var(--mono);letter-spacing:.08em}.fleet-state.up{color:var(--good)}.fleet-state.down,.fleet-missing{color:var(--warn)}
+.fleet-role,.fleet-caption{color:var(--mute);font-size:12px;line-height:1.5}.fleet-role{margin:7px 0 14px}.fleet-caption{margin:14px 0 0}
+.fleet-summary{display:flex;justify-content:space-between;gap:8px;color:var(--mute);font:11px var(--mono);margin-bottom:16px}
+.fleet-meter{margin:12px 0}.fleet-meter>div{display:flex;justify-content:space-between;font-size:12px}.fleet-meter b{color:var(--a);font-family:var(--mono)}
+.fleet-meter progress{display:block;width:100%;height:6px;margin:7px 0;border:0;border-radius:9px;background:var(--line);accent-color:var(--a)}
+.fleet-meter progress::-webkit-progress-bar{background:var(--line);border-radius:9px}.fleet-meter progress::-webkit-progress-value{background:var(--a);border-radius:9px}
+.fleet-meter small,.fleet-foot{font:10px var(--mono);color:var(--mute);overflow-wrap:anywhere}.fleet-foot{margin-top:16px;padding-top:10px;border-top:1px solid var(--line)}
+.fleet-missing{padding:10px 0;font:11px var(--mono)}
+@media(max-width:560px){.fleet-grid{grid-template-columns:1fr}}
+.fleet-smart{margin-top:20px;border-top:1px solid var(--line);padding-top:12px}.fleet-smart h4{margin:0 0 10px;font:10px var(--mono);letter-spacing:.12em;color:var(--mute)}
+.fleet-drive{padding:11px 0;border-bottom:1px solid var(--line)}.fleet-drive b{font-size:12px}.fleet-drive small,.fleet-drive p,.fleet-smart>small{color:var(--mute);font:10px/1.6 var(--mono);overflow-wrap:anywhere}.fleet-drive p{margin:4px 0}.fleet-smart>small{display:block;margin-top:10px}
+
+/* themachine tab */
+.tabs button{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:420px){.tabs button{font-size:8px;letter-spacing:0}}
+#view-themachine .fleet-drive{padding:10px 0;border-top:1px solid var(--line)}
+#view-themachine .fleet-drive:first-child{border-top:0}
+#view-themachine .fleet-drive p{margin:4px 0 0;font-size:12px;color:var(--mute)}
+
+/* both machines' CPU wheels side by side at the top of System */
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.duo > .panel{margin-bottom:12px}
+.duo .hero{flex-direction:column;align-items:stretch;gap:10px;position:relative}
+.duo .hero-ring{width:100%;max-width:190px;margin:0 auto}
+.duo .hero-val{font-size:34px}
+.duo .hero-stats{grid-template-columns:1fr 1fr;gap:8px}
+.duo .stat .v{font-size:14px}
+.duo-name{font:700 11px var(--mono);letter-spacing:.14em;color:var(--mute);display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap}
+.duo-name .mini{letter-spacing:.04em}
+.duo-card.offline .hero-ring,.duo-card.offline .hero-stats{opacity:.35}
+@media (max-width:380px){.duo .hero-val{font-size:28px}.duo .stat .v{font-size:12px}}
+.duo-name{padding-right:30px}
+#view-themachine .gv{min-width:0}
+#view-themachine .gv .mini{white-space:normal;overflow-wrap:anywhere;line-height:1.3}
