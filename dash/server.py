@@ -53,9 +53,10 @@ class Sampler:
     def __init__(self):
         self.lock = threading.Lock()
         self.data = {}
-        self.history = {"cpu": [], "rx": [], "tx": [], "temp": []}
+        self.history = {"cpu": [], "rx": [], "tx": [], "temp": [], "rd": [], "wr": []}
         self._prev_cpu = None
         self._prev_net = None
+        self._prev_io = None
         self._slow_at = 0
         self._slow = {}
         threading.Thread(target=self._loop, daemon=True).start()
@@ -82,6 +83,34 @@ class Sampler:
             f = rest.split()
             rx += int(f[0]); tx += int(f[8])
         return rx, tx
+
+    @staticmethod
+    def _diskstats():
+        """Bytes read/written per whole disk (sdX, nvmeXnY, mmcblkX) from /proc/diskstats."""
+        out = {}
+        for line in Path("/proc/diskstats").read_text().splitlines():
+            f = line.split()
+            if len(f) < 14:
+                continue
+            name = f[2]
+            if re.fullmatch(r"sd[a-z]+|nvme\d+n\d+|mmcblk\d+|vd[a-z]+", name):
+                out[name] = (int(f[5]) * 512, int(f[9]) * 512, int(f[12]))  # read B, written B, io ms
+        return out
+
+    def _io(self, now):
+        cur = self._diskstats()
+        prev, self._prev_io = self._prev_io, (cur, now)
+        disks, rd, wr = [], 0.0, 0.0
+        if prev:
+            dt = max(now - prev[1], 1e-3)
+            for name, (r1, w1, t1) in sorted(cur.items()):
+                if name not in prev[0]:
+                    continue
+                r0, w0, t0 = prev[0][name]
+                r, w = max(0, r1 - r0) / dt, max(0, w1 - w0) / dt
+                disks.append({"dev": name, "read": r, "write": w, "busy": round(min(100, max(0, (t1 - t0) / (dt * 10))), 1)})
+                rd += r; wr += w
+        return {"read": rd, "write": wr, "disks": disks}
 
     def _sample(self):
         now = time.time()
@@ -121,11 +150,13 @@ class Sampler:
             "load": [float(x) for x in load],
             "uptime": uptime,
             "net": {"rx": rxr, "tx": txr},
+            "io": self._io(now),
             **self._slow,
         }
         with self.lock:
             self.data = d
-            for key, val in (("cpu", d["cpu"]), ("rx", rxr), ("tx", txr), ("temp", temp or 0)):
+            for key, val in (("cpu", d["cpu"]), ("rx", rxr), ("tx", txr), ("temp", temp or 0),
+                             ("rd", d["io"]["read"]), ("wr", d["io"]["write"])):
                 h = self.history[key]
                 h.append(round(val, 1))
                 del h[:-120]

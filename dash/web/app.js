@@ -13,6 +13,7 @@ let settings = null, status = null, es = null;
 
 /* ---------------- info sheets: what each thing is and how it connects ---------------- */
 const INFO = {
+  diskio: ["Disk I/O", `<p>How fast each drive is being read from and written to right now, sampled every second from the kernel's <code>/proc/diskstats</code> counters. <b>Busy</b> is the share of time the drive spent handling requests; a drive near 100% busy is the bottleneck, even when the MB/s looks low (small random reads are slow on hard drives).</p><p>This is live activity, separate from <b>drive health</b> (SMART), which reports the drive's own wear and error counters on a schedule.</p>`],
   fleet: ["Your two-machine home lab", `<p><b>Raspberry Pi:</b> hosts Orbit, the price tracker, its website, and the existing cloud backup jobs.</p><p><b>themachine:</b> runs Ubuntu and Xfce from its Kingston SSD. The 2 TB drive at <code>/srv/data</code> holds shared files; the 4 TB drive at <code>/srv/backups</code> is a backup destination. A mounted backup drive does not mean backups have been scheduled or verified.</p><p>Every three seconds, Orbit reads a fixed set of health metrics over your private Tailscale network. Its dedicated SSH key is restricted to the metrics program and cannot open an interactive shell or forward ports.</p><p>An unreachable machine shows no live readings. A disconnected storage volume shows NOT MOUNTED instead of reporting the SSD's free space. Detailed gauges and management controls elsewhere in Orbit still apply to the Pi.</p>`],
   overview: ["How Orbit works", `
 <p><b>Orbit</b> is a control panel for a Raspberry Pi, a small single-board Linux computer that runs all day as a home server. The Pi runs the operating system from an external USB drive, which is faster and lasts longer than a microSD card. Its programs and data are stored on that drive too.</p>
@@ -149,6 +150,19 @@ function spark(canvas, series, opts = {}) {
     }
   });
 }
+/* Live disk I/O panel, shared by the Pi and themachine tabs. pfx = "" (Pi) or "machine-". */
+function renderIO(pfx, io, rd, wr, names = {}) {
+  const g = id => document.getElementById(pfx + id);
+  if (!g("ioRead")) return;
+  io = io || {};
+  g("ioRead").textContent = fmtRate(io.read || 0);
+  g("ioWrite").textContent = fmtRate(io.write || 0);
+  const disks = io.disks || [];
+  const busy = disks.reduce((m, x) => Math.max(m, x.busy || 0), 0);
+  g("ioBusy").textContent = disks.length ? `busiest ${Math.round(busy)}%` : "live";
+  if (g("ioSpark").offsetParent) spark(g("ioSpark"), [{ data: rd || [], color: accent() }, { data: wr || [], color: "#ff3df2" }]);
+  g("ioDisks").innerHTML = disks.map(x => `<div class="row"><div class="main"><div class="name">${esc(names[x.dev] || x.dev)}</div><div class="meta">/dev/${esc(x.dev)} · ${Math.round(x.busy || 0)}% busy</div></div><div class="num">▼ ${fmtRate(x.read)}<div class="meta">▲ ${fmtRate(x.write)}</div></div></div>`).join("") || '<div class="note">Measuring…</div>';
+}
 function miniSpark(data) {
   if (!data || data.length < 2) return "";
   const min = Math.min(...data), max = Math.max(...data), r = max - min || 1;
@@ -158,7 +172,7 @@ function miniSpark(data) {
 }
 
 /* ---------------- live stream ---------------- */
-const hist = { cpu: [], rx: [], tx: [] };
+const hist = { cpu: [], rx: [], tx: [], rd: [], wr: [] };
 function onLive(d) {
   $("#host").textContent = `by Micah · ${d.host || "pi"}`;
   $("#cpuVal").textContent = Math.round(d.cpu);
@@ -186,9 +200,19 @@ function onLive(d) {
   $("#loadVal").textContent = "load " + (d.load || []).map(x => x.toFixed(2)).join(" ");
   $("#rxVal").textContent = fmtRate(d.net.rx); $("#txVal").textContent = fmtRate(d.net.tx);
   hist.cpu.push(d.cpu); hist.rx.push(d.net.rx); hist.tx.push(d.net.tx);
+  hist.rd.push(d.io?.read || 0); hist.wr.push(d.io?.write || 0);
   for (const k in hist) hist[k] = hist[k].slice(-120);
-  spark($("#cpuSpark"), [{ data: hist.cpu, color: accent() }], { max: 100 });
-  spark($("#netSpark"), [{ data: hist.rx, color: accent() }, { data: hist.tx, color: "#ff3df2" }]);
+  if ($("#cpuSpark").offsetParent) spark($("#cpuSpark"), [{ data: hist.cpu, color: accent() }], { max: 100 });
+  if ($("#netSpark").offsetParent) spark($("#netSpark"), [{ data: hist.rx, color: accent() }, { data: hist.tx, color: "#ff3df2" }]);
+  // Pi tab copies of the System wheel, plus swap, storage list and disk I/O
+  $("#piCpuVal").textContent = Math.round(d.cpu); setRing($("#piCpuArc"), d.cpu / 100);
+  $("#piTempVal").innerHTML = $("#tempVal").innerHTML; $("#piTempVal").style.color = $("#tempVal").style.color;
+  $("#piClockVal").textContent = $("#clockVal").textContent; $("#piPowerVal").innerHTML = $("#powerVal").innerHTML;
+  $("#piUpVal").textContent = fmtUp(d.uptime || 0);
+  $("#piState").textContent = "LIVE · " + new Date((d.ts || Date.now() / 1000) * 1000).toLocaleTimeString();
+  $("#memSwap").textContent = d.mem.swapTotal ? `swap ${fmtB(d.mem.swapTotal - (d.mem.swapFree || 0))} / ${fmtB(d.mem.swapTotal)}` : "no swap";
+  $("#piStorage").innerHTML = (d.disks || []).map(x => `<div class="row"><div class="main"><div class="name">${x.mount === "/" ? "USB drive · system" : "Boot partition"}</div><div class="meta">${esc(x.mount)}</div></div><div class="num">${fmtB(x.free)} free<div class="meta">${fmtB(x.total)} total</div></div></div>`).join("");
+  renderIO("", d.io, hist.rd, hist.wr, { sda: "USB drive" });
   $("#procs").innerHTML = (d.procs || []).map(p => `<div class="row"><div class="main"><div class="name">${esc(p.name)}</div><div class="meta">pid ${p.pid}</div></div><div class="num">${p.cpu.toFixed(1)}%<div class="meta">${p.mem.toFixed(1)}% mem</div></div></div>`).join("");
 }
 let fails = 0, poller = null, gotMsg = false;

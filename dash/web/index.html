@@ -32,8 +32,8 @@
   <!-- SYSTEM -->
   <section class="view active" id="view-system" aria-label="System">
     <div class="duo">
-    <div class="panel hero duo-card" data-panel="system" data-info="cpu">
-      <div class="duo-name">RASPBERRY PI</div>
+    <div class="panel hero duo-card" data-panel="system" data-go="pi">
+      <div class="duo-name">RASPBERRY PI <span class="mini">open ›</span></div>
       <div class="hero-ring">
         <svg viewBox="0 0 200 200" class="ring big" aria-hidden="true">
           <circle class="track" cx="100" cy="100" r="84"/>
@@ -50,7 +50,7 @@
       </div>
     </div>
 
-    <div class="panel hero duo-card" data-panel="system" data-info="fleet" id="tmHero">
+    <div class="panel hero duo-card" data-panel="system" data-go="themachine" id="tmHero">
       <div class="duo-name">THEMACHINE <span class="mini" id="tm-state"></span></div>
       <div class="hero-ring">
         <svg viewBox="0 0 200 200" class="ring big" aria-hidden="true">
@@ -71,12 +71,36 @@
     <div class="panel" data-panel="system">
       <div class="ph"><span>HOME LAB</span><span class="mini" id="fleetStatus">Connecting…</span><button class="info" data-info-btn="fleet" aria-label="How the two machines work together">i</button></div>
       <div class="fleet-grid" id="fleetMachines"><div class="note">Connecting to your machines…</div></div>
-      <p class="fleet-caption">Two machines, one Orbit. Detailed gauges and controls below manage the Raspberry Pi.</p>
+      <p class="fleet-caption">Storage, drive health and backups for both machines. Tap a machine for its full live stats.</p>
+    </div>
+  </section>
+
+  <!-- PI -->
+  <section class="view" id="view-pi" aria-label="Raspberry Pi">
+    <div class="panel" data-panel="system">
+      <div class="ph"><span>RASPBERRY PI</span><span class="mini" id="piState">Live</span></div>
+      <p class="fleet-caption">Raspberry Pi 4B · Orbit, price tracker, public site, cloud backups. Controls in Orbit manage this machine.</p>
+    </div>
+    <div class="panel hero" data-panel="system" data-info="cpu">
+      <div class="hero-ring">
+        <svg viewBox="0 0 200 200" class="ring big" aria-hidden="true">
+          <circle class="track" cx="100" cy="100" r="84"/>
+          <circle class="arc" id="piCpuArc" cx="100" cy="100" r="84"/>
+          <circle class="tick" cx="100" cy="100" r="96"/>
+        </svg>
+        <div class="hero-val"><div class="hv"><span id="piCpuVal">--</span><small>%</small></div><div class="lbl">CPU LOAD</div></div>
+      </div>
+      <div class="hero-stats">
+        <div class="stat"><div class="k">TEMP</div><div class="v" id="piTempVal">--</div></div>
+        <div class="stat"><div class="k">CLOCK</div><div class="v" id="piClockVal">--</div></div>
+        <div class="stat"><div class="k">POWER</div><div class="v" id="piPowerVal">--</div></div>
+        <div class="stat"><div class="k">UPTIME</div><div class="v" id="piUpVal">--</div></div>
+      </div>
     </div>
     <div class="grid2">
       <div class="panel gauge" data-panel="system" data-info="mem">
         <svg viewBox="0 0 120 120" class="ring" aria-hidden="true"><circle class="track" cx="60" cy="60" r="48"/><circle class="arc" id="memArc" cx="60" cy="60" r="48"/></svg>
-        <div class="gv"><span id="memVal">--</span><div class="lbl">MEMORY</div><div class="mini" id="memSub"></div></div>
+        <div class="gv"><span id="memVal">--</span><div class="lbl">MEMORY</div><div class="mini" id="memSub"></div><div class="mini" id="memSwap"></div></div>
       </div>
       <div class="panel gauge" data-panel="system" data-info="disk">
         <svg viewBox="0 0 120 120" class="ring" aria-hidden="true"><circle class="track" cx="60" cy="60" r="48"/><circle class="arc" id="diskArc" cx="60" cy="60" r="48"/></svg>
@@ -84,10 +108,6 @@
       </div>
     </div>
 
-    <div class="panel" data-panel="disks" data-info="smart">
-      <div class="ph"><span>DRIVE HEALTH</span><button class="btn" id="smartRefresh">↻</button></div>
-      <div class="list" id="drives"><div class="note">Reading SMART data…</div></div>
-    </div>
 
     <div class="panel" data-panel="cores" data-info="cores">
       <div class="ph"><span>CORES</span><span class="mini" id="loadVal">load --</span></div>
@@ -104,6 +124,23 @@
       <canvas class="spark" id="netSpark" height="60" aria-label="Network history"></canvas>
     </div>
 
+    <div class="panel" data-panel="disks" data-info="diskio">
+      <div class="ph"><span>DISK I/O</span><span class="mini" id="ioBusy">live</span></div>
+      <div class="netrow">
+        <div><div class="k">▼ READ</div><div class="v" id="ioRead">--</div></div>
+        <div><div class="k">▲ WRITE</div><div class="v" id="ioWrite">--</div></div>
+      </div>
+      <canvas class="spark" id="ioSpark" height="60" aria-label="Raspberry Pi disk activity history"></canvas>
+      <div class="list" id="ioDisks"></div>
+    </div>
+    <div class="panel" data-panel="disks" data-info="disk">
+      <div class="ph"><span>STORAGE</span></div>
+      <div class="list" id="piStorage"></div>
+    </div>
+    <div class="panel" data-panel="disks" data-info="smart">
+      <div class="ph"><span>DRIVE HEALTH</span><button class="btn" id="smartRefresh">↻</button></div>
+      <div class="list" id="drives"><div class="note">Reading SMART data…</div></div>
+    </div>
     <div class="panel" data-panel="system" data-info="procs">
       <div class="ph"><span>TOP PROCESSES</span></div>
       <div class="list" id="procs"></div>
@@ -155,6 +192,15 @@
           <div><div class="k">▲ UP</div><div class="v" id="machine-txVal">--</div></div>
         </div>
         <canvas class="spark" id="machine-netSpark" height="60" aria-label="themachine network history"></canvas>
+      </div>
+      <div class="panel" data-panel="disks" data-info="diskio">
+        <div class="ph"><span>DISK I/O</span><span class="mini" id="machine-ioBusy">live</span></div>
+        <div class="netrow">
+          <div><div class="k">▼ READ</div><div class="v" id="machine-ioRead">--</div></div>
+          <div><div class="k">▲ WRITE</div><div class="v" id="machine-ioWrite">--</div></div>
+        </div>
+        <canvas class="spark" id="machine-ioSpark" height="60" aria-label="themachine disk activity history"></canvas>
+        <div class="list" id="machine-ioDisks"></div>
       </div>
       <div class="panel" data-panel="disks">
         <div class="ph"><span>STORAGE</span></div>
@@ -403,6 +449,7 @@
 
 <nav class="tabs" aria-label="Sections">
   <button data-view="system" class="on"><span class="ti">◎</span>System</button>
+  <button data-view="pi"><span class="ti">◈</span>Pi</button>
   <button data-view="themachine"><span class="ti">▣</span>themachine</button>
   <button data-view="network"><span class="ti">⌖</span>Network</button>
   <button data-view="market"><span class="ti">◆</span>Market</button>

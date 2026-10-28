@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 
 _previous_net = None
+_previous_io = None
 
 
 def counters():
@@ -16,6 +17,33 @@ def counters():
             values = list(map(int, line.split()[1:9]))
             cpu.append((sum(values), values[3] + values[4]))
     return cpu
+
+
+def diskstats():
+    import re
+    out = {}
+    for line in Path('/proc/diskstats').read_text().splitlines():
+        f = line.split()
+        if len(f) >= 14 and re.fullmatch(r'sd[a-z]+|nvme\d+n\d+|mmcblk\d+|vd[a-z]+', f[2]):
+            out[f[2]] = (int(f[5]) * 512, int(f[9]) * 512, int(f[12]))
+    return out
+
+
+def disk_io():
+    """Live read/write bytes per second per whole disk, plus % busy."""
+    global _previous_io
+    now, cur = time.monotonic(), diskstats()
+    prev, _previous_io = _previous_io, (cur, now)
+    disks, rd, wr = [], 0.0, 0.0
+    if prev:
+        dt = max(now - prev[1], 1e-3)
+        for name, (r1, w1, t1) in sorted(cur.items()):
+            if name in prev[0]:
+                r0, w0, t0 = prev[0][name]
+                r, w = max(0, r1 - r0) / dt, max(0, w1 - w0) / dt
+                disks.append({'dev': name, 'read': r, 'write': w, 'busy': round(min(100, max(0, (t1 - t0) / (dt * 10))), 1)})
+                rd += r; wr += w
+    return {'read': rd, 'write': wr, 'disks': disks}
 
 
 def snapshot():
@@ -95,7 +123,7 @@ def snapshot():
         'disks': disks,
         'driveHealth': drive_health,
         'backup': backup,
-        'net': rates, 'procs': procs[:6],
+        'net': rates, 'io': disk_io(), 'procs': procs[:6],
         'clock': round(sum(clocks)/len(clocks)) if clocks else None,
     }
 

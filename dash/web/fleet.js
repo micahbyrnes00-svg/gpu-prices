@@ -32,7 +32,11 @@
       return `<div class="fleet-drive"><div class="fleet-heading"><b>${escape(drive.label)}</b><span class="fleet-state ${state === 'passed' ? 'up' : 'down'}">${stateLabel}</span></div><small>${escape(drive.model || drive.device || '')}</small>${details ? `<p>${escape(details)}</p>` : ''}${errors ? `<p>${escape(errors)}</p>` : ''}${drive.message ? `<p>${escape(drive.message)}</p>` : ''}</div>`;
     }).join('')}<small>SMART checked ${escape(new Date(health.ts*1000).toLocaleTimeString())}. A passing check cannot guarantee future reliability.</small></div>`;
     const backup = !d.backup ? '' : `<div class="fleet-foot">Local backup: ${escape(d.backup.configured ? d.backup.status : 'not configured')}${d.backup.lastSuccess ? ` · last success ${escape(new Date(d.backup.lastSuccess*1000).toLocaleString())}` : ''}</div>`;
-    return `<article class="fleet-card">${heading}<div class="fleet-summary"><span>${d.temp == null ? 'Temperature unavailable' : `${Number(d.temp).toFixed(1)}°C`}</span><span>Up ${Math.floor((d.uptime || 0)/3600)}h</span></div>${bar('CPU', d.cpu, `${(d.cores || []).length} cores`)}${bar('RAM', mem.total ? used/mem.total*100 : 0, `${bytes(used)} / ${bytes(mem.total)}`)}${disks}${smart}${backup}<div class="fleet-foot">Updated ${escape(stamp)}</div></article>`;
+    const io = d.io ? `<div class="fleet-foot">Disk I/O ▼ ${bytes(d.io.read)}/s · ▲ ${bytes(d.io.write)}/s</div>` : '';
+    const drives = (health && health.drives) || [];
+    const bad = drives.filter(x => !health.stale && ['attention', 'failed', 'missing'].includes(x.status));
+    const healthLine = !drives.length ? '' : `<div class="fleet-foot">Drive health: ${health.stale ? 'stale' : bad.length ? `<span style="color:var(--warn)">${bad.length} need attention</span>` : `${drives.filter(x => x.status === 'passed').length}/${drives.length} passed`}</div>`;
+    return `<article class="fleet-card fleet-link" data-go="${machine.id === 'pi' ? 'pi' : 'themachine'}">${heading}${disks}${io}${healthLine}${backup}<div class="fleet-foot">Updated ${escape(stamp)} · open tab ›</div></article>`;
   }
   let pending = false;
   async function refresh() {
@@ -52,6 +56,7 @@
       document.dispatchEvent(new CustomEvent('orbit-fleet', {detail: {machines: []}}));
     } finally { pending = false; }
   }
+  document.addEventListener('click', e => { const c = e.target.closest('.duo-card[data-go], .fleet-link[data-go]'); if (c) document.querySelector(`.tabs [data-view="${c.dataset.go}"]`)?.click(); });
   refresh();
   setInterval(() => { if (!document.hidden) refresh(); }, 3000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });

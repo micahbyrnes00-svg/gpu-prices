@@ -60,6 +60,9 @@
       if (cs) spark(cs, [{ data: h.cpu || [], color: accent() }], { max: 100 });
       if (ns) spark(ns, [{ data: h.rx || [], color: accent() }, { data: h.tx || [], color: "#ff3df2" }]);
     }
+    const names = {};
+    ((d.driveHealth || {}).drives || []).forEach(x => { if (x.device) names[String(x.device).replace("/dev/", "")] = x.label; });
+    renderIO("machine-", d.io, h.rd, h.wr, names);
     html("machine-storage", disks.map(x => `<div class="row"><div class="main"><div class="name">${esc(x.label || x.mount)}</div><div class="meta">${esc(x.mount)}</div></div><div class="num">${x.mounted === false ? '<span style="color:var(--warn)">NOT MOUNTED</span>' : esc(fmtB(x.free)) + " free"}<div class="meta">${x.total ? esc(fmtB(x.total)) + " total" : ""}</div></div></div>`).join("") || '<div class="note">No storage data.</div>');
     const hl = d.driveHealth || {};
     html("machine-health", (hl.drives || []).map(x => {

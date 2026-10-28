@@ -6,14 +6,14 @@ import time
 from pathlib import Path
 from metrics import snapshot
 
-history = {'cpu': [], 'rx': [], 'tx': [], 'temp': []}
+history = {'cpu': [], 'rx': [], 'tx': [], 'temp': [], 'rd': [], 'wr': []}
 dest=Path.home()/'.cache/orbit/metrics.json'
 dest.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
 while True:
     started=time.monotonic()
     try:
         data=snapshot()
-        for key,value in [('cpu',data['cpu']),('rx',data['net']['rx']),('tx',data['net']['tx']),('temp',data['temp'])]:
+        for key,value in [('cpu',data['cpu']),('rx',data['net']['rx']),('tx',data['net']['tx']),('temp',data['temp']),('rd',data['io']['read']),('wr',data['io']['write'])]:
             history[key].append(value or 0)
             del history[key][:-120]
         data['history']=history
