@@ -174,7 +174,7 @@ function miniSpark(data) {
 /* ---------------- live stream ---------------- */
 const hist = { cpu: [], rx: [], tx: [], rd: [], wr: [] };
 function onLive(d) {
-  $("#host").textContent = `by Micah · ${d.host || "pi"}`;
+  $("#host").textContent = "by Micah";
   $("#cpuVal").textContent = Math.round(d.cpu);
   setRing($("#cpuArc"), d.cpu / 100);
   $("#tempVal").innerHTML = d.temp != null ? `${d.temp.toFixed(1)}<small>°C</small>` : "--";
