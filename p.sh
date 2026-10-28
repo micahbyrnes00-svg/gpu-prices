@@ -347,6 +347,30 @@ orbitupgrade)  # Orbit v3: push, network radar, drive health, money panel, logs,
   bash "$0" dashinstall
   sleep 3; curl -s -o /dev/null -w "app api: %{http_code} (403 = locked to your login)\n" http://127.0.0.1:8099/api/alerts
   ;;
+mkusb)  # download + verify Ubuntu Server 24.04 and write it to the one USB disk that isn't the boot disk (ERASES it)
+  set -e
+  base=https://releases.ubuntu.com/noble
+  mkdir -p "$HOME/iso"; cd "$HOME/iso"
+  curl -fsSL "$base/SHA256SUMS" -o SHA256SUMS
+  iso=$(grep -o 'ubuntu-24\.04[0-9.]*-live-server-amd64\.iso' SHA256SUMS | sort -V | tail -1)
+  [ -n "$iso" ] || { echo "Couldn't find the ISO name"; exit 1; }
+  echo "Ubuntu image: $iso"
+  if ! grep " \*\?$iso\$" SHA256SUMS | sha256sum -c --status 2>/dev/null; then
+    curl -fL --progress-bar -C - "$base/$iso" -o "$iso"
+  fi
+  grep " \*\?$iso\$" SHA256SUMS | sha256sum -c || { echo "Checksum FAILED, not writing"; exit 1; }
+  root=$(lsblk -no PKNAME "$(findmnt -no SOURCE /)" | head -1)
+  mapfile -t cands < <(lsblk -dnpo NAME,TRAN,TYPE | awk -v r="/dev/$root" '$2=="usb" && $3=="disk" && $1!=r {print $1}')
+  [ ${#cands[@]} -eq 1 ] || { echo "Expected exactly 1 USB disk besides the boot disk, found ${#cands[@]}:"; lsblk -dpo NAME,SIZE,TRAN,MODEL; exit 1; }
+  dev=${cands[0]}
+  echo; echo "Boot disk (kept): /dev/$root"; echo "Target (ERASED):"; lsblk -po NAME,SIZE,FSTYPE,LABEL,MODEL "$dev"
+  read -rp "Type y to ERASE $dev and write the installer: " ok
+  [ "$ok" = y ] || { echo "Cancelled"; exit 1; }
+  for part in $(lsblk -lnpo NAME "$dev" | tail -n +2); do sudo umount "$part" 2>/dev/null || true; done
+  sudo dd if="$iso" of="$dev" bs=4M conv=fsync oflag=direct status=progress
+  sync; sudo eject "$dev" 2>/dev/null || true
+  echo "DONE: installer written to $dev. Unplug it and move it to the server."
+  ;;
 runprices)  # start a price update now (no password: allowed by the Orbit sudo rule)
   sudo -n /usr/bin/systemctl start --no-block gpu-prices.service && echo "Price update started (15-30 min)"
   ;;
