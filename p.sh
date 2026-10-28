@@ -347,6 +347,12 @@ orbitupgrade)  # Orbit v3: push, network radar, drive health, money panel, logs,
   bash "$0" dashinstall
   sleep 3; curl -s -o /dev/null -w "app api: %{http_code} (403 = locked to your login)\n" http://127.0.0.1:8099/api/alerts
   ;;
+probe)  # ping + SSH check of a LAN host by MAC suffix or IP (default: the Ubuntu server, MAC ...57:dd)
+  t=${2:-57:dd}
+  h=$(ip neigh | grep -i "$t" | awk '{print $1}' | head -1); [ -n "$h" ] || h=$t
+  echo "Host: $h"; ping -c2 -W1 "$h" | tail -2
+  if b=$(timeout 3 bash -c "exec 3<>/dev/tcp/$h/22 && head -1 <&3" 2>/dev/null); then echo "SSH OPEN: $b"; else echo "SSH CLOSED / no answer on port 22"; fi
+  ;;
 sshscan)  # list LAN hosts with SSH open, with their SSH banner (finds a freshly installed server)
   net=$(ip -4 route | awk '/^default/ {print $3}' | head -1 | cut -d. -f1-3)
   echo "Scanning $net.0/24 for SSH..."
