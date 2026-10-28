@@ -196,8 +196,29 @@ class Watcher:
                              capture_output=True, text=True).stdout
         return dict(l.split("=", 1) for l in out.splitlines() if "=" in l)
 
+    def _worker(self):
+        """Worker mode: themachine publishes the site. Alert if it fails or goes quiet for 8+ hours."""
+        import integrations
+        st = integrations.worker_status()
+        if not st.get("ts"):
+            return
+        if st["ts"] != self.state.get("worker-ts"):
+            first = self.state.get("worker-ts") is None
+            self.state["worker-ts"] = st["ts"]
+            if not first and not st.get("ok"):
+                fire("prices", "Price update failed on themachine", st.get("error") or "Check themachine's orbit-prices logs.",
+                     url="/#themachine", key="worker-fail", cooldown=60)
+        elif time.time() - st["ts"] > 8 * 3600:
+            fire("prices", "Price updates stopped", f"themachine hasn't published since {st.get('ago')}. Is it online?",
+                 url="/#themachine", key="worker-stale", cooldown=6 * 60)
+
     def _jobs(self):
-        for unit, rule in (("pi-cloud-backup.service", "backup"), ("gpu-prices.service", "prices")):
+        import integrations
+        if integrations.env_get("PRICES_WORKER"):
+            self._worker()
+        units = (("pi-cloud-backup.service", "backup"),) if integrations.env_get("PRICES_WORKER") else \
+                (("pi-cloud-backup.service", "backup"), ("gpu-prices.service", "prices"))
+        for unit, rule in units:
             r = self._unit_result(unit)
             stamp = r.get("ExecMainExitTimestampMonotonic", "0")
             key = "job-" + unit
@@ -238,6 +259,9 @@ class Watcher:
         """Run the price update every 6 hours when the systemd timer isn't enabled (no sudo needed to turn it on)."""
         if not store.get("auto_prices"):
             return
+        import integrations
+        if integrations.env_get("PRICES_WORKER"):
+            return  # themachine runs the updates now
         self._after_prices()
         if subprocess.run(["systemctl", "is-active", "--quiet", "gpu-prices.timer"]).returncode == 0:
             return

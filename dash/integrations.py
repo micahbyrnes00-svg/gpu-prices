@@ -93,7 +93,29 @@ def site_check(url, force=False):
     return c
 
 
+WORKER_STATUS = Path("/home/pi/worker/status.json")
+
+
+def _ago(ts):
+    m = int((time.time() - ts) // 60)
+    return f"{m} min ago" if m < 90 else f"{m // 60} h ago" if m < 2880 else f"{m // 1440} days ago"
+
+
+def worker_status():
+    """Last publish from themachine (written by its worker job into the Pi's upload folder)."""
+    try:
+        d = json.loads(WORKER_STATUS.read_text())
+        d["ago"] = _ago(d["ts"])
+        return d
+    except (OSError, ValueError, KeyError, TypeError):
+        return {}
+
+
 def prices_job():
+    if env_get("PRICES_WORKER"):
+        st = worker_status()
+        return {"result": ("success" if st.get("ok") else "failed") if st else "",
+                "last": f"{st['ago']} on {env_get('PRICES_WORKER')}" if st else "n/a"}
     out = _sh(["systemctl", "show", "gpu-prices.service", "-p", "Result", "-p", "ExecMainExitTimestamp", "--value"])
     parts = out.splitlines()
     return {"result": parts[0] if parts else "", "last": parts[1] if len(parts) > 1 else ""}

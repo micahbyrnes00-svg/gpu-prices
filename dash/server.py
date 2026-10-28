@@ -410,6 +410,10 @@ def act(body):
         if target not in names:
             return 400, "unknown container"
         code, out = sh(["docker", "restart", target], 60)
+    elif a == "run_prices" and env_get("PRICES_WORKER"):
+        st = integrations.worker_status()
+        return 200, (f"Price updates now run on {env_get('PRICES_WORKER')} every 6 hours"
+                     + (f"; last published {st['ago']}." if st.get("ago") else "; waiting for its first publish."))
     elif a == "run_prices":
         code, out = sh(SUDO_SYSTEMCTL + ["start", "--no-block", "gpu-prices.service"], 10)
     elif a == "go_live":
@@ -867,6 +871,8 @@ def rebuild_if_pending():
     if not store.get("rebuild_site"):
         return
     store.put("rebuild_site", False)
+    if env_get("PRICES_WORKER"):
+        return  # themachine builds and publishes the site; the Pi only serves it
     real = (Path(env_get("DATA_DIR") or REPO / "data") / "prices.db").exists()
     subprocess.Popen(["python3", "run.py"] + (["build", "--no-ai"] if real else ["demo", "--no-ai"]), cwd=str(REPO),
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
