@@ -361,8 +361,8 @@ function onView(v) {
   if (v === "network") { loadNetwork(); loadSites(); }
   if (v === "market") { loadStatus(); loadMoney(); loadFunnel(); if (!window._dcGrowth) loadIntegrations(); }
   if (v === "alerts") { loadAlerts(); $("#alertDot").classList.remove("on"); try { localStorage.setItem("seenAlert", String(Date.now() / 1000)); } catch { } }
-  if (v === "control") { loadStatus(); fillLogSources(); loadSecurity(); }
-  if (v === "settings") { loadStatus(); loadAlerts(); loadIntegrations(); }
+  if (v === "settings") v = "control";
+  if (v === "control") { loadStatus(); fillLogSources(); loadSecurity(); loadAlerts(); loadIntegrations(); }
 }
 const b64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const b64uDec = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), c => c.charCodeAt(0));
@@ -832,7 +832,8 @@ $("#wNew").addEventListener("click", async () => {
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => { });
   await seedHistory(); connect(); loadStatus(); loadAlerts(); loadDisks();
   const start = location.hash.slice(1);
-  if (start && $(`.tabs [data-view="${start}"]`)) $(`.tabs [data-view="${start}"]`).click();
+  if (start === "settings") $(`.tabs [data-view="control"]`).click();
+  else if (start && $(`.tabs [data-view="${start}"]`)) $(`.tabs [data-view="${start}"]`).click();
   setInterval(() => { loadStatus(); if (cur === "network") { loadNetwork(); loadSites(); } if (cur === "control") loadSecurity(); if (cur === "market") { loadMoney(); loadFunnel(); } if (cur === "alerts") loadAlerts(); }, 30000);
   setInterval(loadDisks, 300000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { connect(); onView(cur); } });
