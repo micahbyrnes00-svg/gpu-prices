@@ -70,8 +70,13 @@ web)  # serve the real site (/home/pi/site) if built, else the demo; localhost o
   src=/home/pi/site; [ -f $src/index.html ] || src=/home/pi/gpu-prices/demo-site
   bind=${2:-0.0.0.0}
   mkdir -p /home/pi/site-logs
+  rapid=$(grep -E '^RAPIDAPI_PROXY_SECRET=' .env 2>/dev/null | tail -1 | cut -d= -f2-)
+  if ! docker run --rm -e RAPIDAPI_PROXY_SECRET="${rapid:-x}" -v /home/pi/gpu-prices/deploy/Caddyfile:/etc/caddy/Caddyfile:ro \
+       caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile >/tmp/caddy-validate.log 2>&1; then
+    echo "Caddyfile is invalid; keeping the current web server running. Details: /tmp/caddy-validate.log"; tail -3 /tmp/caddy-validate.log; exit 1
+  fi
   docker rm -f gpu-prices-web >/dev/null 2>&1
-  docker run -d --name gpu-prices-web --restart unless-stopped -p $bind:8088:80 \
+  docker run -d --name gpu-prices-web --restart unless-stopped -p $bind:8088:80 -e RAPIDAPI_PROXY_SECRET="$rapid" \
     -v $src:/usr/share/caddy:ro -v /home/pi/gpu-prices/deploy/Caddyfile:/etc/caddy/Caddyfile:ro \
     -v /home/pi/site-logs:/logs caddy:2-alpine >/dev/null && echo "Serving $src on $bind:8088 (access log: /home/pi/site-logs)"
   ;;
@@ -186,7 +191,7 @@ setenv)  # setenv KEY VALUE -> writes into .env (created from .env.example), chm
   sed -i '/^[a-z][a-z]*=/d' .env   # drop lowercase junk keys from VNC typing
   k=$(echo "$2" | tr a-z A-Z | tr -d '_')   # VNC can't type _ or capitals: accept "epncampaignid"
   case $k in EPNCAMPAIGNID) k=EPN_CAMPAIGN_ID;; EBAYCLIENTID) k=EBAY_CLIENT_ID;; EBAYCLIENTSECRET) k=EBAY_CLIENT_SECRET;;
-    AMAZONTAG) k=AMAZON_TAG;; AMAZONSIGNUP) k=AMAZON_SIGNUP;; NEWSLETTERURL) k=NEWSLETTER_URL;; DISCORDINVITE) k=DISCORD_INVITE;; ADSENSECLIENT) k=ADSENSE_CLIENT;; CONTACTEMAIL) k=CONTACT_EMAIL;; SITENAME) k=SITE_NAME;; SITEURL) k=SITE_URL;; *) k=$2;; esac
+    AMAZONTAG) k=AMAZON_TAG;; RAPIDAPIPROXYSECRET) k=RAPIDAPI_PROXY_SECRET;; RAPIDAPIURL) k=RAPIDAPI_URL;; AMAZONSIGNUP) k=AMAZON_SIGNUP;; NEWSLETTERURL) k=NEWSLETTER_URL;; DISCORDINVITE) k=DISCORD_INVITE;; ADSENSECLIENT) k=ADSENSE_CLIENT;; CONTACTEMAIL) k=CONTACT_EMAIL;; SITENAME) k=SITE_NAME;; SITEURL) k=SITE_URL;; *) k=$2;; esac
   set -- "$1" "$k" "$3"
   if grep -q "^$2=" .env; then sed -i "s|^$2=.*|$2=$3|" .env; else echo "$2=$3" >> .env; fi
   grep "^$2=" .env | sed -E 's/(SECRET=|WEBHOOK=).+/\1*****/'

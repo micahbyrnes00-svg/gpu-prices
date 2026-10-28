@@ -14,7 +14,7 @@ ENV = REPO / ".env"
 UA = {"User-Agent": "Orbit/1"}
 DISCORD_KEYS = [("DISCORD_WEBHOOK", "#deals (main)"), ("DISCORD_WEBHOOK_GPU", "#gpu-deals"), ("DISCORD_WEBHOOK_CPU", "#cpu-deals"),
                 ("DISCORD_WEBHOOK_RAMSSD", "#ram-ssd-deals"), ("DISCORD_WEBHOOK_MONITOR", "#monitor-deals"),
-                ("DISCORD_WEBHOOK_CONSOLE", "#console-deals"), ("DISCORD_WEBHOOK_PHONE", "#iphone-deals"),
+                ("DISCORD_WEBHOOK_CONSOLE", "#console-deals"), ("DISCORD_WEBHOOK_PHONE", "#iphone-deals"), ("DISCORD_WEBHOOK_LAPTOP", "#laptop-deals"), ("DISCORD_WEBHOOK_CAMERA", "#camera-deals"),
                 ("DISCORD_WEBHOOK_REPORT", "#market-report")]
 
 

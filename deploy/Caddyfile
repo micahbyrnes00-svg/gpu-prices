@@ -20,6 +20,16 @@
 	@probe path /wp-* /.env* /.git* *.php /cgi-bin/* /phpmyadmin* /vendor/* /boaform/* /actuator/* /.aws/* /admin*
 	respond @probe 404
 
+	# Price data API: only RapidAPI may call it (it adds the proxy secret header). Anything else gets 403,
+	# so the paid data can't be pulled for free around RapidAPI. The files only exist once a secret is configured.
+	@api_denied {
+		path /api/*
+		not header X-RapidAPI-Proxy-Secret {$RAPIDAPI_PROXY_SECRET:unset-no-api}
+	}
+	respond @api_denied "API access is through RapidAPI" 403
+	@api path /api/*
+	header @api Cache-Control "no-store"
+
 	# affiliate click beacon from the site's "View" buttons
 	@beacon path /c
 	respond @beacon 204

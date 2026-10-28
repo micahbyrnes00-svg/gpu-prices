@@ -40,6 +40,18 @@ CONTACT_EMAIL = os.environ.get("CONTACT_EMAIL", "")
 DISCORD_INVITE = os.environ.get("DISCORD_INVITE", "").rsplit("/", 1)[-1]  # invite code, e.g. AbCd123
 NEWSLETTER_URL = os.environ.get("NEWSLETTER_URL", "")    # newsletter provider's embed form action (e.g. Buttondown), optional
 
+# Price data API (sold through RapidAPI). Files under /api/v1 are only built when the proxy secret is set,
+# and Caddy refuses /api/* requests that don't carry it, so the data can't be pulled for free around RapidAPI.
+RAPIDAPI_PROXY_SECRET = os.environ.get("RAPIDAPI_PROXY_SECRET", "")
+RAPIDAPI_URL = os.environ.get("RAPIDAPI_URL", "")          # public RapidAPI listing page, shown on api.html
+# "What's my part worth?" trade-in links. Plain links work; paste affiliate/referral URLs to earn on them.
+SELL_LINKS = {
+    "ebay": os.environ.get("SELL_EBAY_URL", "https://www.ebay.com/sl/sell"),
+    "backmarket": os.environ.get("SELL_BACKMARKET_URL", "https://www.backmarket.com/en-us/buyback/home"),
+    "decluttr": os.environ.get("SELL_DECLUTTR_URL", "https://www.decluttr.com/"),
+    "swappa": os.environ.get("SELL_SWAPPA_URL", "https://swappa.com/sell"),
+}
+
 # Command used for AI summaries; prompt is passed on stdin. Empty = template text only.
 AI_CMD = os.environ.get("AI_CMD", "claude -p")
 AI_REFRESH_DAYS = int(os.environ.get("AI_REFRESH_DAYS", "7"))

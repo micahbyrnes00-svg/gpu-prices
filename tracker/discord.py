@@ -10,8 +10,8 @@ import urllib.request
 
 from . import config
 
-COLORS = {"gpu": 0x76B900, "cpu": 0xED1C24, "ram": 0x2457D6, "ssd": 0x8E44AD, "monitor": 0x16A085, "console": 0x003791, "phone": 0x555555}
-CHANNEL_KEY = {"gpu": "GPU", "cpu": "CPU", "ram": "RAMSSD", "ssd": "RAMSSD", "monitor": "MONITOR", "console": "CONSOLE", "phone": "PHONE"}
+COLORS = {"gpu": 0x76B900, "cpu": 0xED1C24, "ram": 0x2457D6, "ssd": 0x8E44AD, "monitor": 0x16A085, "console": 0x003791, "phone": 0x555555, "laptop": 0xE67E22, "mac": 0xA2AAAD, "handheld": 0x1A9FFF, "camera": 0xC0392B}
+CHANNEL_KEY = {"gpu": "GPU", "cpu": "CPU", "ram": "RAMSSD", "ssd": "RAMSSD", "monitor": "MONITOR", "console": "CONSOLE", "phone": "PHONE", "handheld": "CONSOLE", "laptop": "LAPTOP", "mac": "LAPTOP", "camera": "CAMERA"}
 
 
 def webhook(kind):

@@ -104,6 +104,23 @@ def model_report(con, model: dict) -> dict:
         ]
         rep["listings"] = trusted[:10]
         rep["deals"] = [r for r in trusted if r["total"] <= cur["median"] * config.DEAL_RATIO][:5]
+    newcur = rep["new_current"]
+    rep["new_listings"], rep["new_deals"] = [], []
+    if newcur:
+        rows = con.execute(
+            """
+            SELECT * FROM listings WHERE model_id = ? AND bucket = 'new'
+              AND run_id = (SELECT MAX(id) FROM runs) ORDER BY total
+            """,
+            (model["id"],),
+        ).fetchall()
+        trusted_new = [
+            dict(r) for r in rows
+            if (r["seller_pct"] or 0) >= config.MIN_FEEDBACK_PCT and (r["seller_score"] or 0) >= config.MIN_FEEDBACK_SCORE
+            and r["total"] >= newcur["p25"] * 0.7
+        ]
+        rep["new_listings"] = trusted_new[:5]
+        rep["new_deals"] = [r for r in trusted_new if r["total"] <= newcur["median"] * 0.92][:3]
     return rep
 
 

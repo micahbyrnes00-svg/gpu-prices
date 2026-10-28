@@ -4,7 +4,7 @@ import json
 import shutil
 from datetime import datetime, timezone
 
-from . import config
+from . import config, extra
 
 E = html.escape
 
@@ -91,6 +91,11 @@ h2{font-size:22px;line-height:1.2;margin:40px 0 14px;font-weight:700}h3{font-siz
 .mhead span:nth-child(n+3){text-align:right}
 /* deal + listing cards */
 .dgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin:12px 0}
+.grid3 .card .v{font:800 26px/1.1 var(--disp)}.grid3 .card .v.big{font-size:32px}.grid3 .card.main{border-color:var(--accent)}
+.share{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}.share .sharebtn svg{width:16px;height:16px;margin-right:6px;vertical-align:-3px}
+button.pill{cursor:pointer;font:inherit}
+h1 svg,h2 svg,.card b svg,.pill svg{width:1.05em;height:1.05em;vertical-align:-.15em;margin-right:.25em;display:inline-block}
 .dealcard{display:flex;flex-direction:column;gap:6px}
 .deal{color:var(--down);font-weight:700}
 .dealcard .tt{font-size:14px;color:var(--mute);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.9em}
@@ -205,6 +210,14 @@ ICONS = {
     "monitor": _I.format('<rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>'),
     "console": _I.format('<path d="M7 8h10a5 5 0 0 1 4.6 7l-.6 1.4a2.5 2.5 0 0 1-4.3.5L15 15H9l-1.7 1.9a2.5 2.5 0 0 1-4.3-.5L2.4 15A5 5 0 0 1 7 8z"/><path d="M7 11v3M5.5 12.5h3M16 12h.01M18 13.5h.01"/>'),
     "phone": _I.format('<rect x="6.5" y="2" width="11" height="20" rx="2.5"/><path d="M11 18.5h2"/>'),
+    "laptop": _I.format('<rect x="4" y="5" width="16" height="11" rx="1.5"/><path d="M2 19h20"/>'),
+    "mac": _I.format('<rect x="4" y="5" width="16" height="11" rx="1.5"/><path d="M2 19h20M10 8.5h4"/>'),
+    "handheld": _I.format('<rect x="2" y="7" width="20" height="10" rx="3"/><rect x="8" y="9" width="8" height="6" rx="1"/><path d="M5 11v2M4 12h2M19 11h.01M19 13h.01"/>'),
+    "camera": _I.format('<path d="M4 8h3l2-2h6l2 2h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/>'),
+    "new": _I.format('<path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.3 6.8 19.1l1-5.8L3.5 9.2l5.9-.9z"/>'),
+    "sell": _I.format('<path d="M3 12l9-9h7v7l-9 9z"/><circle cx="15.5" cy="7.5" r="1.4"/>'),
+    "api": _I.format('<path d="M8 8l-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14"/>'),
+    "share": _I.format('<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/>'),
     "search": _I.format('<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>'),
     "menu": _I.format('<path d="M4 7h16M4 12h16M4 17h16"/>'),
     "guide": _I.format('<path d="M4 5h11a3 3 0 0 1 3 3v12H7a3 3 0 0 1-3-3z"/><path d="M8 9h6M8 13h6"/>'),
@@ -233,6 +246,10 @@ ACCESSORIES = {
     "monitor": [("Monitor arm", "monitor arm"), ("DisplayPort 1.4 cable", "DisplayPort 1.4 cable")],
     "console": [("Extra controller", "PS5 DualSense Xbox wireless controller"), ("Storage expansion", "PS5 NVMe SSD Xbox storage expansion card"), ("Charging station", "controller charging station")],
     "phone": [("iPhone case", "iPhone case MagSafe"), ("USB-C / MagSafe charger", "MagSafe charger 20W USB C"), ("Screen protector", "iPhone tempered glass screen protector")],
+    "laptop": [("Laptop cooling pad", "gaming laptop cooling pad"), ("USB-C dock", "USB C docking station laptop"), ("Laptop backpack", "17 inch gaming laptop backpack")],
+    "mac": [("USB-C hub", "USB C hub MacBook"), ("MacBook case", "MacBook Air Pro hard shell case"), ("Laptop stand", "aluminum laptop stand")],
+    "handheld": [("Carrying case", "Steam Deck ROG Ally carrying case"), ("microSD card (1TB)", "1TB microSD card A2"), ("Docking station", "Steam Deck ROG Ally docking station")],
+    "camera": [("Extra battery", "Sony NP-FZ100 Canon LP-E6NH battery"), ("SD card (V60/V90)", "SD card V90 UHS-II"), ("Camera bag", "mirrorless camera bag")],
 }
 
 
@@ -341,7 +358,9 @@ def page(title, desc, body, path, demo=False, jsonld=None, crumbs=None, og=None,
             f'<button class="closebtn" aria-label="Close menu">✕</button><h3>Prices</h3>{menu_cats}'
             f'<h3>Tools</h3><a href="check.html">{ICONS["check"]}Price checker</a><a href="guides.html">{ICONS["guide"]}Buying guides &amp; comparisons</a>'
             f'<a href="report.html">{ICONS["report"]}Weekly market report</a>'
-            + (f'<a href="{E(dc)}" data-m="discord" target="_blank" rel="noopener">{ICONS["discord"]}Deals Discord</a>' if dc else "")
+            f'<a href="new.html">{ICONS["new"]}Best deals on new</a><a href="sell.html">{ICONS["sell"]}What\'s my part worth?</a>'
+            + (f'<a href="api.html">{ICONS["api"]}Price data API</a>' if config.RAPIDAPI_PROXY_SECRET else "")
+            + (f'<a href="discord.html">{ICONS["discord"]}Deals Discord</a>' if dc else "")
             + '<h3>About</h3><a href="about.html">How prices are calculated</a><a href="privacy.html">Privacy</a></div></div>')
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#3d5afe">
@@ -356,7 +375,7 @@ def page(title, desc, body, path, demo=False, jsonld=None, crumbs=None, og=None,
 <style>{CSS}</style></head><body data-pt="{pt}">{banner}
 <header class="top"><div class="wrap">
 <a class="brand" href="index.html" aria-label="Orbit, used tech prices: home">{LOGO}<span><b>Orbit</b><small>used tech prices</small></span></a>
-<div class="search" role="search">{ICONS["search"]}<input id="q" type="search" placeholder="Search a GPU, CPU, iPhone…" aria-label="Search models" autocomplete="off"><div class="results" id="res"></div></div>
+<div class="search" role="search">{ICONS["search"]}<input id="q" type="search" placeholder="Search a GPU, MacBook, Steam Deck…" aria-label="Search models" autocomplete="off"><div class="results" id="res"></div></div>
 <nav class="navlinks" aria-label="Main"><a href="check.html">Price check</a><a href="guides.html">Guides</a>{discord_cta("nav")}</nav>
 <button class="menubtn" id="menubtn" aria-expanded="false" aria-controls="menu">{ICONS["menu"]}<span>Browse</span></button>
 </div></header>{menu}
@@ -520,6 +539,10 @@ def model_page(rep, summary, demo):
 <h2>Cheapest listings from well-rated sellers</h2>
 {f'<div class="lgrid">{listings}</div>' if listings else '<p class="sub">No listings from well-rated sellers right now.</p>'}
 <p>{discord_cta("inline")}</p>
+{extra.buy_new_html(rep)}
+<p><a class="pill" href="sell-{E(m["id"])}.html">{ICONS["sell"]}Selling one? See what your {E(name)} is worth</a></p>
+{extra.share_html(f"{config.SITE_URL}/{m['id']}.html", f"Used {name} is going for about {money(cur['median'])} right now", "Share this price")}
+<script>{extra.SHARE_JS}</script>
 {RELATED.get(m["id"], "")}
 {faq}
 {accessories_html(m["cat"])}
@@ -592,6 +615,11 @@ def index_page(reports, market, summary, demo):
 <li><b>Price</b>The middle of the market becomes the typical price and fair range.</li>
 <li><b>Flag</b>Listings well under typical, from trusted sellers, become deals.</li></ol>
 <h2 id="browse">Browse by category</h2><div class="catgrid">{"".join(cats)}</div>
+<div class="grid3">
+<a class="card" href="new.html"><b>{ICONS["new"]} Best deals on new</b><p class="k" style="margin:4px 0 0">New-condition listings below the typical new price, plus top-rated picks.</p></a>
+<a class="card" href="sell.html"><b>{ICONS["sell"]} What's my part worth?</b><p class="k" style="margin:4px 0 0">Selling or trading in? See today's value and where to sell.</p></a>
+{f'<a class="card" href="discord.html"><b>{ICONS["discord"]} Deals Discord</b><p class="k" style="margin:4px 0 0">Free channels that post deals the moment they appear.</p></a>' if config.DISCORD_INVITE else ""}
+</div>
 <h2>Best deals right now</h2>{deals_block(deals)}<p style="margin-top:12px">{discord_cta("inline")}</p>
 {f'<h2>This week in used tech</h2><div class="ai">{E(summary)}</div>' if summary else ''}
 {HOME_GUIDES}
@@ -773,14 +801,12 @@ def build(reports, summaries, demo, models=None):
         (out / "ads.txt").write_text(f"google.com, {config.ADSENSE_CLIENT.replace('ca-', '')}, DIRECT, f08c47fec0942fa0\n")
     for r in reports:
         (out / f"{r['model']['id']}.html").write_text(model_page(r, summaries.get(r["model"]["id"]), demo))
-        (out / "data" / f"{r['model']['id']}.json").write_text(json.dumps({
-            "model": r["model"]["name"], "current": r["current"], "change_7d": r["chg_7d"],
-            "change_30d": r["chg_30d"], "history": r["series"][-365:]}, indent=1))
-    extra, week = pages.write_all(out, reports, summaries, demo)
+    more, week = pages.write_all(out, reports, summaries, demo)
+    more += extra.write_all(out, reports, demo)
     global LAST_WEEK
     LAST_WEEK = week
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    urls = ["", "check.html", "about.html", "privacy.html"] + [f"{c}.html" for c in cats_used] + [f"{r['model']['id']}.html" for r in reports] + extra
+    urls = ["", "check.html", "about.html", "privacy.html"] + [f"{c}.html" for c in cats_used] + [f"{r['model']['id']}.html" for r in reports] + more
     (out / "sitemap.xml").write_text(
         '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
         + "".join(f"<url><loc>{config.SITE_URL}/{u}</loc><lastmod>{now}</lastmod></url>\n" for u in urls)

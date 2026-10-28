@@ -161,9 +161,159 @@
     "locked to"
    ],
    "intro": "Used unlocked iPhone prices by model and storage."
+  },
+  "laptop": {
+   "label": "Gaming Laptops",
+   "short": "Laptops",
+   "ebay_category_id": "177",
+   "intro": "Used gaming laptop prices from live eBay listings, including shipping. Prices cover common configurations; check the exact GPU, RAM and storage in each listing.",
+   "exclude": [
+    "no ssd",
+    "no hdd",
+    "no ram",
+    "no os",
+    "bios lock",
+    "bios locked",
+    "bios password",
+    "cracked screen",
+    "broken screen",
+    "broken hinge",
+    "screen only",
+    "keyboard only",
+    "palmrest",
+    "motherboard",
+    "battery only",
+    "shell",
+    "housing",
+    "box only",
+    "lot"
+   ]
+  },
+  "mac": {
+   "label": "MacBooks",
+   "short": "MacBooks",
+   "ebay_category_id": "111422",
+   "intro": "Used MacBook prices from live eBay listings, including shipping. Avoid any listing that mentions iCloud, activation or MDM locks.",
+   "exclude": [
+    "icloud locked",
+    "icloud lock",
+    "activation lock",
+    "mdm",
+    "firmware lock",
+    "efi lock",
+    "bios lock",
+    "cracked",
+    "screen only",
+    "logic board",
+    "top case",
+    "keyboard only",
+    "battery only",
+    "case only",
+    "shell",
+    "housing",
+    "box only",
+    "lot"
+   ]
+  },
+  "handheld": {
+   "label": "Handheld Gaming PCs",
+   "short": "Handhelds",
+   "ebay_category_id": "139971",
+   "intro": "Used Steam Deck and ROG Ally prices from live eBay listings, including shipping.",
+   "exclude": [
+    "case only",
+    "dock only",
+    "charger only",
+    "skin",
+    "screen protector",
+    "grip",
+    "shell",
+    "motherboard",
+    "box only",
+    "replacement",
+    "joystick",
+    "thumbstick"
+   ]
+  },
+  "camera": {
+   "label": "Mirrorless Cameras",
+   "short": "Cameras",
+   "ebay_category_id": "31388",
+   "intro": "Used mirrorless camera body prices from live eBay listings, including shipping. Body-only prices; kits with lenses are excluded.",
+   "exclude": [
+    "kit",
+    "with lens",
+    "w/ lens",
+    "lens only",
+    "24-70",
+    "28-70",
+    "24-105",
+    "18-55",
+    "15-45",
+    "28-60",
+    "16-50",
+    "18-135",
+    "battery grip",
+    "body cap",
+    "shutter error",
+    "fungus",
+    "haze",
+    "cage",
+    "strap only",
+    "charger only",
+    "battery only",
+    "box only",
+    "lot",
+    "replacement"
+   ]
   }
  },
- "global_exclude": ["for parts", "parts only", "not working", "broken", "faulty", "defective", "as is", "as-is", "box only", "empty box", "read description", "untested", "lot of", "pc build", "gaming pc", "desktop computer", "replica", "fake", "clone", "damaged", "repair", "failed", "no display", "no video", "no post", "for repair", "not tested", "needs repair", "dead", "water damage", "bad", "port issue", "fan issue", "display issue", "hdmi issue", "issue with", "wobbly", "artifacting", "artifact", "cracked", "crashing", "overheating", "not detected", "no signal"],
+ "global_exclude": [
+  "for parts",
+  "parts only",
+  "not working",
+  "broken",
+  "faulty",
+  "defective",
+  "as is",
+  "as-is",
+  "box only",
+  "empty box",
+  "read description",
+  "untested",
+  "lot of",
+  "pc build",
+  "gaming pc",
+  "desktop computer",
+  "replica",
+  "fake",
+  "clone",
+  "damaged",
+  "repair",
+  "failed",
+  "no display",
+  "no video",
+  "no post",
+  "for repair",
+  "not tested",
+  "needs repair",
+  "dead",
+  "water damage",
+  "bad",
+  "port issue",
+  "fan issue",
+  "display issue",
+  "hdmi issue",
+  "issue with",
+  "wobbly",
+  "artifacting",
+  "artifact",
+  "cracked",
+  "crashing",
+  "overheating",
+  "not detected",
+  "no signal"
+ ],
  "models": [
   {
    "id": "rtx-3060-12gb",
@@ -904,7 +1054,7 @@
   },
   {
    "id": "steam-deck-oled-512",
-   "cat": "console",
+   "cat": "handheld",
    "name": "Steam Deck OLED 512GB",
    "query": "Steam Deck OLED 512GB",
    "must": [
@@ -1034,6 +1184,292 @@
    ],
    "min": 520,
    "max": 1890
+  },
+  {
+   "id": "rog-zephyrus-g14",
+   "cat": "laptop",
+   "name": "ASUS ROG Zephyrus G14",
+   "query": "ASUS ROG Zephyrus G14 gaming laptop",
+   "must": [
+    "zephyrus",
+    "g14"
+   ],
+   "exclude": [],
+   "min": 350,
+   "max": 2600
+  },
+  {
+   "id": "lenovo-legion-5",
+   "cat": "laptop",
+   "name": "Lenovo Legion 5 / 5 Pro",
+   "query": "Lenovo Legion 5 gaming laptop",
+   "must": [
+    "legion 5"
+   ],
+   "exclude": [
+    "legion 7",
+    "legion 9"
+   ],
+   "min": 300,
+   "max": 2000
+  },
+  {
+   "id": "razer-blade-15",
+   "cat": "laptop",
+   "name": "Razer Blade 15",
+   "query": "Razer Blade 15 gaming laptop",
+   "must": [
+    "razer",
+    "blade 15"
+   ],
+   "exclude": [
+    "blade 14",
+    "blade 16",
+    "blade 17",
+    "blade 18"
+   ],
+   "min": 400,
+   "max": 2800
+  },
+  {
+   "id": "asus-tuf-a15",
+   "cat": "laptop",
+   "name": "ASUS TUF Gaming A15",
+   "query": "ASUS TUF Gaming A15 laptop",
+   "must": [
+    "tuf",
+    "a15"
+   ],
+   "exclude": [],
+   "min": 250,
+   "max": 1500
+  },
+  {
+   "id": "alienware-m16",
+   "cat": "laptop",
+   "name": "Alienware m16",
+   "query": "Alienware m16 gaming laptop",
+   "must": [
+    "alienware",
+    "m16"
+   ],
+   "exclude": [],
+   "min": 500,
+   "max": 3200
+  },
+  {
+   "id": "macbook-air-m1",
+   "cat": "mac",
+   "name": "MacBook Air M1 (2020)",
+   "query": "MacBook Air M1 2020",
+   "must": [
+    "macbook air",
+    "m1"
+   ],
+   "exclude": [
+    "m2",
+    "m3",
+    "m4",
+    "pro"
+   ],
+   "min": 220,
+   "max": 1100
+  },
+  {
+   "id": "macbook-air-m2",
+   "cat": "mac",
+   "name": "MacBook Air M2",
+   "query": "MacBook Air M2",
+   "must": [
+    "macbook air",
+    "m2"
+   ],
+   "exclude": [
+    "m1",
+    "m3",
+    "m4",
+    "pro"
+   ],
+   "min": 350,
+   "max": 1500
+  },
+  {
+   "id": "macbook-air-m3",
+   "cat": "mac",
+   "name": "MacBook Air M3",
+   "query": "MacBook Air M3",
+   "must": [
+    "macbook air",
+    "m3"
+   ],
+   "exclude": [
+    "m1",
+    "m2",
+    "m4",
+    "pro"
+   ],
+   "min": 500,
+   "max": 1900
+  },
+  {
+   "id": "macbook-pro-14-m1-pro",
+   "cat": "mac",
+   "name": "MacBook Pro 14\" M1 Pro",
+   "query": "MacBook Pro 14 M1 Pro",
+   "must": [
+    "macbook pro",
+    "14",
+    "m1 pro"
+   ],
+   "exclude": [
+    "m1 max"
+   ],
+   "min": 550,
+   "max": 2600
+  },
+  {
+   "id": "macbook-pro-14-m3-pro",
+   "cat": "mac",
+   "name": "MacBook Pro 14\" M3 Pro",
+   "query": "MacBook Pro 14 M3 Pro",
+   "must": [
+    "macbook pro",
+    "14",
+    "m3 pro"
+   ],
+   "exclude": [
+    "m3 max"
+   ],
+   "min": 900,
+   "max": 3200
+  },
+  {
+   "id": "steam-deck-oled-1tb",
+   "cat": "handheld",
+   "name": "Steam Deck OLED 1TB",
+   "query": "Steam Deck OLED 1TB",
+   "must": [
+    "steam deck",
+    "oled",
+    "1tb"
+   ],
+   "exclude": [
+    "512"
+   ],
+   "min": 330,
+   "max": 1300
+  },
+  {
+   "id": "steam-deck-lcd",
+   "cat": "handheld",
+   "name": "Steam Deck LCD",
+   "query": "Steam Deck LCD console",
+   "must": [
+    "steam deck"
+   ],
+   "exclude": [
+    "oled"
+   ],
+   "min": 140,
+   "max": 650
+  },
+  {
+   "id": "rog-ally",
+   "cat": "handheld",
+   "name": "ASUS ROG Ally",
+   "query": "ASUS ROG Ally handheld",
+   "must": [
+    "rog ally"
+   ],
+   "exclude": [
+    "ally x"
+   ],
+   "min": 200,
+   "max": 900
+  },
+  {
+   "id": "rog-ally-x",
+   "cat": "handheld",
+   "name": "ASUS ROG Ally X",
+   "query": "ASUS ROG Ally X handheld",
+   "must": [
+    "ally x"
+   ],
+   "exclude": [],
+   "min": 350,
+   "max": 1300
+  },
+  {
+   "id": "sony-a7-iii",
+   "cat": "camera",
+   "name": "Sony a7 III (body)",
+   "query": "Sony a7 III body",
+   "must": [
+    "a7",
+    "iii"
+   ],
+   "exclude": [
+    "a7r",
+    "a7s",
+    "a7c",
+    "iv"
+   ],
+   "min": 450,
+   "max": 1800
+  },
+  {
+   "id": "sony-a7-iv",
+   "cat": "camera",
+   "name": "Sony a7 IV (body)",
+   "query": "Sony a7 IV body",
+   "must": [
+    "a7",
+    "iv"
+   ],
+   "exclude": [
+    "a7r",
+    "a7s",
+    "a7c",
+    "iii"
+   ],
+   "min": 900,
+   "max": 2700
+  },
+  {
+   "id": "canon-eos-r6",
+   "cat": "camera",
+   "name": "Canon EOS R6 (body)",
+   "query": "Canon EOS R6 body",
+   "must": [
+    "r6"
+   ],
+   "exclude": [
+    "mark ii",
+    "mkii",
+    "mk ii",
+    "r6ii",
+    "r6 ii"
+   ],
+   "min": 650,
+   "max": 2300
+  },
+  {
+   "id": "fujifilm-x-t4",
+   "cat": "camera",
+   "name": "Fujifilm X-T4 (body)",
+   "query": "Fujifilm X-T4 body",
+   "must": [
+    "fuji",
+    "t4"
+   ],
+   "exclude": [
+    "t40",
+    "t4 ii",
+    "x-t5",
+    "xt5"
+   ],
+   "min": 450,
+   "max": 1600
   }
  ]
 }
