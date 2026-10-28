@@ -347,6 +347,18 @@ orbitupgrade)  # Orbit v3: push, network radar, drive health, money panel, logs,
   bash "$0" dashinstall
   sleep 3; curl -s -o /dev/null -w "app api: %{http_code} (403 = locked to your login)\n" http://127.0.0.1:8099/api/alerts
   ;;
+sshscan)  # list LAN hosts with SSH open, with their SSH banner (finds a freshly installed server)
+  net=$(ip -4 route | awk '/^default/ {print $3}' | head -1 | cut -d. -f1-3)
+  echo "Scanning $net.0/24 for SSH..."
+  for i in $(seq 1 254); do
+    ( h=$net.$i
+      if timeout 1 bash -c "exec 3<>/dev/tcp/$h/22 && head -c 64 <&3" 2>/dev/null | grep -q SSH; then
+        b=$(timeout 2 bash -c "exec 3<>/dev/tcp/$h/22 && head -1 <&3" 2>/dev/null | tr -d '\r')
+        echo "$h  $b  $(ip neigh show $h | awk '{print $5}')"
+      fi ) &
+    [ $((i % 64)) -eq 0 ] && wait
+  done; wait
+  ;;
 mkusb)  # download + verify Ubuntu Server 24.04 and write it to the one USB disk that isn't the boot disk (ERASES it)
   set -e
   base=https://releases.ubuntu.com/noble
