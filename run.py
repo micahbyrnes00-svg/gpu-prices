@@ -57,7 +57,9 @@ def build(con, models, use_ai=True):
     site.build(reports, summaries, demo, models)
     print(f"Built {len(reports)} model pages{' (DEMO)' if demo else ''}")
     if not demo:
-        from tracker import discord
+        from tracker import discord, discover
+        if discover.ping(site.LAST_URLS):
+            print(f"IndexNow: submitted {len(site.LAST_URLS)} URLs")
         n = discord.post_deals(con, reports)
         if n:
             print(f"Posted {n} new deals to Discord")

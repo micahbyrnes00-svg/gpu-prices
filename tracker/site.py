@@ -579,6 +579,7 @@ def table(reports, cat):
 
 
 def index_page(reports, market, summary, demo):
+    from . import discover
     from .stats import market_index
     live = [r for r in reports if r["current"]]
     deals = sorted((d | {"model": r["model"], "median": r["current"]["median"]} for r in reports for d in r["deals"]),
@@ -626,7 +627,7 @@ def index_page(reports, market, summary, demo):
 {newsletter_html()}"""
     return page(f"{config.SITE_NAME} — Today's Used Prices & Deals",
                 "What used GPUs, CPUs, RAM, SSDs, monitors, consoles and iPhones really cost: typical prices, fair ranges, history and the best current deals from live eBay listings.",
-                body, "index.html", demo, og=OG.get("home"), pt="home")
+                body, "index.html", demo, jsonld=(None if demo else discover.site_ld()), og=OG.get("home"), pt="home")
 
 
 def category_page(cat, reports, demo):
@@ -769,6 +770,9 @@ def _sync(src, dst):
         shutil.move(str(child), str(dst / child.name))
 
 
+LAST_URLS: list = []
+
+
 def build(reports, summaries, demo, models=None):
     global NAV, CATS
     CATS = (models or config.load_models())["categories"]
@@ -811,8 +815,15 @@ def build(reports, summaries, demo, models=None):
         '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
         + "".join(f"<url><loc>{config.SITE_URL}/{u}</loc><lastmod>{now}</lastmod></url>\n" for u in urls)
         + "</urlset>\n")
-    (out / "robots.txt").write_text(
-        ("User-agent: *\nDisallow: /\n" if demo else f"User-agent: *\nAllow: /\nSitemap: {config.SITE_URL}/sitemap.xml\n"))
+    from . import discover
+    (out / "robots.txt").write_text(discover.robots(demo))
+    if not demo:
+        glinks = [(g["title"], f"{g['id']}.html") for g in pages.GUIDES if f"{g['id']}.html" in more]
+        (out / "llms.txt").write_text(discover.llms_txt(reports, CATS, glinks))
+        (out / "llms-full.txt").write_text(discover.llms_full(reports, CATS))
+        discover.write_key(out)
+    global LAST_URLS
+    LAST_URLS = urls
     (out / ".nojekyll").write_text("")
     (out / "404.html").write_text(page(f"Not found — {config.SITE_NAME}", "Page not found.",
         '<h1>Page not found</h1><p class="sub">That page doesn\'t exist. <a href="index.html">See all used prices</a>.</p>',
