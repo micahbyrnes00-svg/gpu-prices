@@ -403,6 +403,42 @@ setinvite)  # save the Discord invite code (VNC can't type capitals, so the defa
   if grep -q "^DISCORD_INVITE=" .env; then sed -i "s|^DISCORD_INVITE=.*|DISCORD_INVITE=$v|" .env; else echo "DISCORD_INVITE=$v" >> .env; fi
   chmod 600 .env; grep "^DISCORD_INVITE=" .env
   ;;
+mcp)  # Orbit MCP server for AI assistants at https://<domain>/mcp (container on 127.0.0.1:8090 + tunnel route)
+  mkdir -p ~/orbit-mcp
+  [ -f ~/orbit-mcp/keys.json ] || { echo '{}' > ~/orbit-mcp/keys.json; chmod 600 ~/orbit-mcp/keys.json; }
+  site=$(grep -E '^SITE_URL=' .env | cut -d= -f2-)
+  docker rm -f orbit-mcp >/dev/null 2>&1 || true
+  docker run -d --name orbit-mcp --restart unless-stopped --user "$(id -u):$(id -g)" --read-only \
+    -p 127.0.0.1:8090:8000 -e ORBIT_DATA=/site/api/v1 -e ORBIT_STATE=/state -e SITE_URL="$site" \
+    -v "$HOME/gpu-prices/mcp:/app:ro" -v "$HOME/worker/site:/site:ro" -v "$HOME/orbit-mcp:/state" \
+    python:3.12-alpine python /app/server.py >/dev/null || { echo "docker run failed"; exit 1; }
+  sleep 3; echo "local: $(curl -s 127.0.0.1:8090/healthz)"
+  cfg=/etc/cloudflared/config.yml
+  if ! sudo grep -q "127.0.0.1:8090" "$cfg"; then
+    d=$(sudo grep -m1 -E '^ *- hostname:' "$cfg" | awk '{print $3}')
+    sudo cp "$cfg" "$cfg.bak-mcp"
+    sudo python3 - "$cfg" "$d" <<'PY'
+import sys
+p, d = sys.argv[1], sys.argv[2]
+lines = open(p).read().splitlines()
+i = lines.index("ingress:") + 1
+lines[i:i] = [f"  - hostname: {d}", "    path: ^/mcp", "    service: http://127.0.0.1:8090"]
+open(p, "w").write("\n".join(lines) + "\n")
+PY
+    sudo cloudflared tunnel ingress validate --config "$cfg" >/dev/null 2>&1 || { sudo cp "$cfg.bak-mcp" "$cfg"; echo "tunnel config invalid; restored"; exit 1; }
+    sudo systemctl restart cloudflared; sleep 5
+  fi
+  echo "public: $(curl -s -X POST "$site/mcp" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | head -c 120)"
+  ;;
+mcpkey)  # bash p.sh mcpkey <label> : create a paid-tier MCP API key (printed once)
+  [ -n "${2:-}" ] || { echo "usage: bash p.sh mcpkey customer-name"; exit 1; }
+  python3 - "$2" <<'PY'
+import json, secrets, sys, pathlib
+p = pathlib.Path.home() / "orbit-mcp/keys.json"
+k = json.loads(p.read_text() or "{}"); key = "orb_" + secrets.token_urlsafe(24); k[key] = sys.argv[1]
+p.write_text(json.dumps(k, indent=1)); print(key)
+PY
+  ;;
 restartorbit)  # restart the Orbit app (no password: allowed by the Orbit sudo rule)
   sudo -n /usr/bin/systemctl restart picommand.service && sleep 2 && echo "Orbit: $(systemctl is-active picommand.service)"
   ;;

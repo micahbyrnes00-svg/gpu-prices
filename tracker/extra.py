@@ -259,6 +259,10 @@ def api_page(demo):
 <p class="sub">Daily used-market prices for 75+ models across GPUs, CPUs, RAM, SSDs, monitors, consoles, iPhones, gaming laptops, MacBooks, handhelds and cameras, as clean JSON.</p>
 {sub}
 <h2>Endpoints</h2><div class="scroll"><table class="tbl"><tr><th>Endpoint</th><th>Returns</th></tr>{rows}</table></div>
+<h2>MCP server for AI assistants</h2>
+<p>Connect Claude, ChatGPT, Cursor or any MCP client to <code>{E(config.SITE_URL)}/mcp</code> (Streamable HTTP). No key is needed for current prices, deal checks and 30 days of history.
+Tools: <code>search_models</code>, <code>get_price</code>, <code>check_price</code>, <code>list_category</code>, <code>list_categories</code>, <code>market_movers</code>, <code>get_price_history</code>.
+An API key (<code>Authorization: Bearer …</code>) unlocks 365 days of history and higher limits.</p>
 <h2>Example</h2><pre class="card" style="overflow:auto">{{"id":"rtx-3080","name":"NVIDIA RTX 3080","category":"gpu",
  "used":{{"typical":412.5,"fair_low":380,"fair_high":455,"lowest":329,"listings":118,"date":"2026-10-28"}},
  "new":{{"typical":699}},"change_7d_pct":-2.1,"change_30d_pct":-4.8,"low_90d":398}}</pre>

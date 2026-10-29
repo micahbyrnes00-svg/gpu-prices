@@ -51,6 +51,8 @@ def llms_txt(reports, cats, guide_links) -> str:
              f"- [Price checker]({u}/check.html): is a given asking price a good deal",
              f"- [How prices are calculated]({u}/about.html)",
              f"- [Price data API]({u}/api.html)",
+             f"- MCP server (Streamable HTTP, no key needed for current prices): {u}/mcp. Tools: search_models, get_price, "
+             "check_price, list_category, list_categories, market_movers, get_price_history",
              "",
              "## Categories"]
     lines += [f"- [{v['label']}]({u}/{c}.html)" for c, v in cats.items()
