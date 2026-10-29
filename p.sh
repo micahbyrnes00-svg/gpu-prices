@@ -439,6 +439,12 @@ k = json.loads(p.read_text() or "{}"); key = "orb_" + secrets.token_urlsafe(24);
 p.write_text(json.dumps(k, indent=1)); print(key)
 PY
   ;;
+aikey)  # type your OpenRouter API key (hidden, never shown) and test it with one tiny request
+  read -rsp "OpenRouter API key (hidden): " k; echo
+  case "$k" in sk-or-*) ;; *) echo "That isn't an OpenRouter key (starts with sk-or-)"; exit 1;; esac
+  bash "$0" setenv OPENROUTER_API_KEY "$k" >/dev/null; unset k
+  python3 -c 'from tracker import ai,config;print("model:",config.AI_MODEL);print("test:",ai._openrouter("Reply with exactly: The RTX 3080 is typically $400 used.") or "FAILED")'
+  ;;
 restartorbit)  # restart the Orbit app (no password: allowed by the Orbit sudo rule)
   sudo -n /usr/bin/systemctl restart picommand.service && sleep 2 && echo "Orbit: $(systemctl is-active picommand.service)"
   ;;

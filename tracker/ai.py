@@ -20,7 +20,25 @@ def _template(rep: dict) -> str:
             f"under ${cur['p25']:,.0f} from a well-rated seller is a good buy.")
 
 
+def _openrouter(prompt: str) -> str | None:
+    import urllib.request
+    body = json.dumps({"model": config.AI_MODEL, "max_tokens": 400, "temperature": 0.3,
+                       "messages": [{"role": "user", "content": prompt}]}).encode()
+    req = urllib.request.Request("https://openrouter.ai/api/v1/chat/completions", data=body, headers={
+        "Authorization": f"Bearer {config.OPENROUTER_API_KEY}", "Content-Type": "application/json",
+        "HTTP-Referer": config.SITE_URL, "X-Title": "Orbit used tech prices"})
+    try:
+        with urllib.request.urlopen(req, timeout=90) as r:
+            d = json.load(r)
+        return clean(d["choices"][0]["message"]["content"])
+    except Exception as e:  # never break a build over a summary
+        print(f"OpenRouter failed: {str(e)[:120]}")
+        return None
+
+
 def _ask(prompt: str) -> str | None:
+    if config.OPENROUTER_API_KEY:
+        return _openrouter(prompt)
     if not config.AI_CMD:
         return None
     try:
