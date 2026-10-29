@@ -5,6 +5,821 @@
   "compatibility_date": "2026-10-29",
   "workers_dev": false,
   "preview_urls": false,
-  "observability": {"enabled": true, "logs": {"enabled": true, "invocation_logs": false}},
-  "routes": []
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": false
+    }
+  },
+  "routes": [
+    {
+      "pattern": "orbitbymicah.com/",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/about.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/alienware-aw3423dwf.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/alienware-m16.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/asus-pg27aqdm.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/asus-tuf-a15.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/best-used-cpu-for-gaming-under-150.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/best-used-cpu-for-gaming-under-250.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/best-used-cpu-for-gaming-under-400.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/best-used-gpu-under-200.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/best-used-gpu-under-300.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/best-used-gpu-under-400.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/best-used-gpu-under-500.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/best-used-gpu-under-700.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/best-used-ssd-per-tb.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/camera.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/canon-eos-r6.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/cheapest-32gb-ram.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/cheapest-64gb-ram.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/check.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/console.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/core-i5-12600k-vs-ryzen-5-7600x.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/core-i5-12600k.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/core-i7-12700k.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/core-i7-13700k-vs-ryzen-7-7800x3d.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/core-i7-13700k.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/core-i9-13900k.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/cpu.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/ddr4-16gb-3200.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/ddr4-32gb-3200.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/ddr4-32gb-3600.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/ddr4-64gb-3200.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/ddr5-32gb-5600.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/ddr5-32gb-6000.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/ddr5-64gb-6000.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/ddr5-96gb-6400.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/dell-s2721dgf.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/discord.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/fujifilm-x-t4.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/gpu.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/guides.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/handheld.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/iphone-13-128-vs-iphone-14-128.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/iphone-13-128.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/iphone-14-128.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/iphone-14-pro-128-vs-iphone-15-128.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/iphone-14-pro-128.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/iphone-15-128.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/iphone-15-pro-128-vs-iphone-16-pro-128.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/iphone-15-pro-128.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/iphone-15-pro-max-256.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/iphone-16-pro-128.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/laptop.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/lenovo-legion-5.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/lg-27gp850.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/llms-full.txt",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/llms.txt",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/mac.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/macbook-air-m1.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/macbook-air-m2.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/macbook-air-m3.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/macbook-pro-14-m1-pro.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/macbook-pro-14-m3-pro.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/monitor.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/new.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/phone.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/privacy.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/ps5-digital-vs-xbox-series-s.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/ps5-digital.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/ps5-disc-vs-ps5-pro.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/ps5-disc-vs-xbox-series-x.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/ps5-disc.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/ps5-pro.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/ram.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/razer-blade-15.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/report.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/robots.txt",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/rog-ally-x.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/rog-ally.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/rog-zephyrus-g14.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/rtx-3060-12gb.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/rtx-3060-ti.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/rtx-3070-vs-rx-6700-xt.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/rtx-3070.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/rtx-3080-vs-rx-6800-xt.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/rtx-3080.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/rtx-3090.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/rtx-4060.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/rtx-4070-super-vs-rtx-3090.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/rtx-4070-super.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/rtx-4070-vs-rx-7800-xt.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/rtx-4070.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/rtx-4080-vs-rx-7900-xtx.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/rtx-4080.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/rtx-4090.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/rx-6700-xt.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/rx-6800-xt.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/rx-7800-xt.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/rx-7900-xtx.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/ryzen-5-5600x.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/ryzen-5-7600x.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/ryzen-7-5800x3d-vs-ryzen-7-7800x3d.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/ryzen-7-5800x3d.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/ryzen-7-7800x3d-vs-ryzen-7-9800x3d.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/ryzen-7-7800x3d.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/ryzen-7-9800x3d.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/ryzen-9-7950x.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/samsung-870-evo-1tb.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/samsung-980-pro-1tb.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/samsung-990-pro-1tb.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/samsung-990-pro-2tb-vs-wd-sn850x-2tb.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/samsung-990-pro-2tb.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/samsung-odyssey-g7-27.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-alienware-aw3423dwf.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-alienware-m16.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-asus-pg27aqdm.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-asus-tuf-a15.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-canon-eos-r6.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-core-i5-12600k.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-core-i7-12700k.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-core-i7-13700k.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-core-i9-13900k.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-ddr4-16gb-3200.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-ddr4-32gb-3200.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-ddr4-32gb-3600.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-ddr4-64gb-3200.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-ddr5-32gb-5600.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-ddr5-32gb-6000.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-ddr5-64gb-6000.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-ddr5-96gb-6400.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-dell-s2721dgf.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-fujifilm-x-t4.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-iphone-13-128.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-iphone-14-128.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-iphone-14-pro-128.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-iphone-15-128.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-iphone-15-pro-128.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-iphone-15-pro-max-256.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-iphone-16-pro-128.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-lenovo-legion-5.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-lg-27gp850.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-macbook-air-m1.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-macbook-air-m2.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-macbook-air-m3.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-macbook-pro-14-m1-pro.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-macbook-pro-14-m3-pro.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-ps5-digital.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-ps5-disc.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-ps5-pro.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-razer-blade-15.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-rog-ally-x.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-rog-ally.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-rog-zephyrus-g14.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-rtx-3060-12gb.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-rtx-3060-ti.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-rtx-3070.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-rtx-3080.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-rtx-3090.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-rtx-4060.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-rtx-4070-super.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-rtx-4070.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-rtx-4080.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-rtx-4090.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-rx-6700-xt.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-rx-6800-xt.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-rx-7800-xt.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-rx-7900-xtx.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-ryzen-5-5600x.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-ryzen-5-7600x.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-ryzen-7-5800x3d.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-ryzen-7-7800x3d.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-ryzen-7-9800x3d.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-ryzen-9-7950x.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-samsung-870-evo-1tb.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-samsung-980-pro-1tb.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-samsung-990-pro-1tb.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-samsung-990-pro-2tb.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-samsung-odyssey-g7-27.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-sony-a7-iii.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-sony-a7-iv.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-steam-deck-lcd.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-steam-deck-oled-1tb.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-steam-deck-oled-512.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-switch-2.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-switch-oled.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-wd-sn850x-2tb.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-xbox-series-s.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell-xbox-series-x.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sell.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sitemap.xml",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sony-a7-iii.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/sony-a7-iv.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/ssd.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/steam-deck-lcd.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/steam-deck-oled-1tb.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/steam-deck-oled-512.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/switch-2.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/switch-oled-vs-switch-2.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/switch-oled.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/wd-sn850x-2tb.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/xbox-series-s.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    },
+    {
+      "pattern": "orbitbymicah.com/xbox-series-x.html",
+      "zone_id": "340a97bd609d0b1de8b70e15cecf8f7c"
+    }
+  ]
 }
