@@ -1,0 +1,10 @@
+{
+  "name": "orbit-tollbit-analytics",
+  "main": "tollbit-analytics-worker.mjs",
+  "account_id": "892515c10a6dc8b3ae63fce100314b7b",
+  "compatibility_date": "2026-10-29",
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": {"enabled": true, "logs": {"enabled": true, "invocation_logs": false}},
+  "routes": []
+}
