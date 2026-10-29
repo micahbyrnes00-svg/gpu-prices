@@ -15,10 +15,12 @@ def robots(demo: bool) -> str:
         return "User-agent: *\nDisallow: /\n"
     allow = "".join(f"User-agent: {b}\n" for b in AI_SEARCH_BOTS) + "Allow: /\n"
     # Content-Signal (contentsignals.org, used by Cloudflare): OK to index and quote in AI answers, not to train on.
-    # Training crawlers are left to Cloudflare AI Crawl Control (charge or block) rather than robots.txt.
+    # Google-Extended is a robots token, not an HTTP crawler, so it needs an origin opt-out.
+    # Other training crawlers are controlled by Cloudflare AI Crawl Control (charge or block).
     return (f"# {config.SITE_URL}: used tech prices from live eBay listings.\n"
             f"# AI assistants: see {config.SITE_URL}/llms.txt\n\n"
             f"{allow}\n"
+            "User-agent: Google-Extended\nDisallow: /\n\n"
             "User-agent: *\nContent-Signal: search=yes, ai-input=yes, ai-train=no\nAllow: /\n\n"
             f"Sitemap: {config.SITE_URL}/sitemap.xml\n")
 

@@ -12,7 +12,15 @@ SITE_DIR=$(envval SITE_DIR); SITE_DIR=${SITE_DIR:-docs}
 git pull --rebase --quiet origin main || true
 python3 run.py all
 
-if [ -f "$SITE_DIR/robots.txt" ] && grep -q "Disallow: /" "$SITE_DIR/robots.txt"; then
+# Individual crawler opt-outs are valid production policy; reject a site-wide block.
+if [ -f "$SITE_DIR/robots.txt" ] && python3 -c '
+import sys
+from urllib.robotparser import RobotFileParser
+robots = RobotFileParser()
+with open(sys.argv[1]) as source:
+    robots.parse(source.read().splitlines())
+sys.exit(0 if not robots.can_fetch("OrbitPublishCheck", "/") else 1)
+' "$SITE_DIR/robots.txt"; then
   echo "Site was built from demo data; refusing to publish." >&2
   exit 1
 fi
