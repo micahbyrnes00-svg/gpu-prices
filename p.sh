@@ -409,7 +409,7 @@ mcp)  # Orbit MCP server for AI assistants at https://<domain>/mcp (container on
   site=$(grep -E '^SITE_URL=' .env | cut -d= -f2-)
   docker rm -f orbit-mcp >/dev/null 2>&1 || true
   docker run -d --name orbit-mcp --restart unless-stopped --user "$(id -u):$(id -g)" --read-only \
-    -p 127.0.0.1:8090:8000 -e ORBIT_DATA=/site/api/v1 -e ORBIT_STATE=/state -e SITE_URL="$site" \
+    -p 127.0.0.1:8090:8000 -e ORBIT_DATA=/site/api/v1 -e ORBIT_STATE=/state -e SITE_URL="$site" -e STRIPE_KEY="$(grep -E '^STRIPE_KEY=' .env | cut -d= -f2-)" \
     -v "$HOME/gpu-prices/mcp:/app:ro" -v "$HOME/worker/site:/site:ro" -v "$HOME/orbit-mcp:/state" \
     python:3.12-alpine python /app/server.py >/dev/null || { echo "docker run failed"; exit 1; }
   sleep 3; echo "local: $(curl -s 127.0.0.1:8090/healthz)"
@@ -429,6 +429,13 @@ PY
     sudo systemctl restart cloudflared; sleep 5
   fi
   echo "public: $(curl -s -X POST "$site/mcp" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | head -c 120)"
+  ;;
+stripekey)  # type the Stripe restricted key (hidden), save it, restart the MCP server with it
+  read -rsp "Stripe restricted key (hidden, starts rk_): " k; echo
+  case "$k" in rk_live_*|rk_test_*) ;; *) echo "Use a restricted key (rk_live_... or rk_test_...)"; exit 1;; esac
+  python3 -c 'import sys,urllib.request;urllib.request.urlopen(urllib.request.Request("https://api.stripe.com/v1/checkout/sessions?limit=1",headers={"Authorization":"Bearer "+sys.argv[1]}),timeout=15);print("Stripe key OK")' "$k" || { echo "Stripe rejected the key: needs Read on Checkout Sessions and Subscriptions"; exit 1; }
+  bash "$0" setenv STRIPE_KEY "$k" >/dev/null; unset k
+  bash "$0" mcp
   ;;
 mcpkey)  # bash p.sh mcpkey <label> : create a paid-tier MCP API key (printed once)
   [ -n "${2:-}" ] || { echo "usage: bash p.sh mcpkey customer-name"; exit 1; }

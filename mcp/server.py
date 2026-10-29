@@ -8,6 +8,8 @@ Reads the aggregated JSON the price worker publishes (site/api/v1); never raw eB
   PORT         listen port (default 8000)
   FREE_DAILY   tool calls per day per IP without a key (default 200)
   KEY_DAILY    tool calls per day per API key (default 10000)
+  STRIPE_KEY   Stripe restricted key (read: Checkout Sessions, Subscriptions). Enables /mcp/key, which turns a
+               paid Stripe Payment Link checkout into an API key, and turns keys off when the subscription ends.
 
 Free tier: current prices, search, deal check, categories, movers, last 30 days of history.
 API key (header "Authorization: Bearer <key>" or "X-Orbit-Key"): up to 365 days of history, higher limit.
@@ -228,6 +230,90 @@ def _keys():
         return {}
 
 
+def _label(v):
+    return v.get("label", "") if isinstance(v, dict) else str(v)
+
+
+STRIPE_KEY = os.environ.get("STRIPE_KEY", "")
+_sub_cache = {}  # subscription id -> (checked_at, active)
+
+
+def _stripe(path):
+    import urllib.request
+    req = urllib.request.Request("https://api.stripe.com/v1/" + path, headers={"Authorization": f"Bearer {STRIPE_KEY}"})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        return json.load(r)
+
+
+def _key_active(v):
+    """Manual keys are always active; Stripe keys only while the subscription is (re-checked every 6 h)."""
+    sub = v.get("sub") if isinstance(v, dict) else None
+    if not sub or not STRIPE_KEY:
+        return True
+    hit = _sub_cache.get(sub)
+    if hit and time.time() - hit[0] < 6 * 3600:
+        return hit[1]
+    try:
+        ok = _stripe(f"subscriptions/{sub}").get("status") in ("active", "trialing", "past_due")
+    except Exception:
+        return hit[1] if hit else True  # Stripe unreachable: don't lock out paying users
+    _sub_cache[sub] = (time.time(), ok)
+    return ok
+
+
+def issue_key(session_id):
+    """Verify a completed Stripe checkout and return (key, error). One key per checkout session."""
+    import secrets
+    if not STRIPE_KEY:
+        return None, "Key sales aren't set up yet."
+    if not re.fullmatch(r"cs_(test|live)_[A-Za-z0-9]{10,200}", session_id or ""):
+        return None, "Missing or invalid checkout session."
+    with _lock:
+        keys = _keys()
+        for k, v in keys.items():
+            if isinstance(v, dict) and v.get("session") == session_id:
+                return k, None
+    try:
+        s = _stripe(f"checkout/sessions/{session_id}")
+    except Exception:
+        return None, "Couldn't confirm the payment with Stripe. Reload this page in a minute."
+    if s.get("status") != "complete" or s.get("payment_status") not in ("paid", "no_payment_required"):
+        return None, "This checkout isn't paid yet."
+    email = (s.get("customer_details") or {}).get("email") or ""
+    with _lock:
+        keys = _keys()
+        for k, v in keys.items():
+            if isinstance(v, dict) and v.get("session") == session_id:
+                return k, None
+        key = "orb_" + secrets.token_urlsafe(24)
+        keys[key] = {"label": email or session_id[-8:], "session": session_id, "sub": s.get("subscription"),
+                     "created": int(time.time())}
+        tmp = STATE / "keys.json.tmp"
+        tmp.write_text(json.dumps(keys, indent=1))
+        tmp.replace(STATE / "keys.json")
+    return key, None
+
+
+def _key_page(key, err):
+    from html import escape
+    if err:
+        body = f"<h1>Almost there</h1><p>{escape(err)}</p>"
+    else:
+        body = f"""<h1>Your Orbit API key</h1>
+<p>Copy it now and keep it private. This page shows the same key if you reload it.</p>
+<pre id="k">{escape(key)}</pre>
+<h2>Connect it</h2>
+<p>MCP server URL: <code>{escape(SITE)}/mcp</code></p>
+<p>Add a request header <code>Authorization</code> with the value <code>Bearer {escape(key)}</code>.
+In Claude: Settings → Connectors → Add custom connector → No sign-in → Add header.</p>
+<p>Your key unlocks 365 days of price history and {KEY_DAILY:,} calls a day. It stays active while your subscription is active.</p>"""
+    return f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><title>Orbit API key</title><style>body{{font:16px/1.5 system-ui,sans-serif;max-width:640px;margin:40px auto;padding:0 16px;background:#fff;color:#111}}
+pre{{background:#f1f3f8;padding:14px;border-radius:8px;overflow:auto;font-size:15px}}code{{background:#f1f3f8;padding:1px 5px;border-radius:4px}}
+@media (prefers-color-scheme:dark){{body{{background:#111;color:#eee}}pre,code{{background:#222}}}}</style></head>
+<body>{body}<p><a href="{escape(SITE)}/api.html">Orbit price data</a></p></body></html>""".encode()
+
+
 def _allow(who, limit):
     day = date.today().isoformat()
     with _lock:
@@ -319,6 +405,11 @@ class H(BaseHTTPRequestHandler):
             self.send_header("Allow", "POST")
             self.send_header("Content-Length", "0")
             self.end_headers()
+        elif self.path.split("?")[0] == "/mcp/key":
+            from urllib.parse import parse_qs, urlsplit
+            sid = (parse_qs(urlsplit(self.path).query).get("session_id") or [""])[0]
+            key, err = issue_key(sid)
+            self._send(200 if key else 400, _key_page(key, err), "text/html; charset=utf-8")
         elif self.path == "/healthz":
             self._send(200, {"ok": True, "models": len(_models())})
         else:
@@ -340,10 +431,11 @@ class H(BaseHTTPRequestHandler):
         auth = self.headers.get("Authorization", "")
         key = auth[7:].strip() if auth.lower().startswith("bearer ") else (self.headers.get("X-Orbit-Key") or "").strip()
         keys = _keys()
-        if key and key not in keys:
-            return self._send(401, _error(msg.get("id") if isinstance(msg, dict) else None, -32001, "Invalid API key"))
+        if key and (key not in keys or not _key_active(keys[key])):
+            return self._send(401, _error(msg.get("id") if isinstance(msg, dict) else None, -32001,
+                                          "Invalid or inactive API key"))
         paid = bool(key)
-        who = f"key:{keys[key]}" if paid else "ip:" + (self.headers.get("CF-Connecting-IP") or self.client_address[0])
+        who = f"key:{_label(keys[key])}" if paid else "ip:" + (self.headers.get("CF-Connecting-IP") or self.client_address[0])
         if isinstance(msg, list):
             out = [r for r in (handle(m, who, paid) for m in msg) if r is not None]
             return self._send(200, out) if out else self._send(202)

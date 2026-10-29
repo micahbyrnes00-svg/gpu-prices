@@ -56,6 +56,7 @@ SELL_LINKS = {
 AI_CMD = os.environ.get("AI_CMD", "claude -p")
 # OpenRouter (used first when a key is set): one key, prepaid credit, spending cap on openrouter.ai
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
+MCP_KEY_URL = os.environ.get("MCP_KEY_URL", "")  # Stripe Payment Link for MCP API keys
 AI_MODEL = os.environ.get("AI_MODEL", "reflection/beam-1.0-501b-a23b")
 AI_REFRESH_DAYS = int(os.environ.get("AI_REFRESH_DAYS", "7"))
 
