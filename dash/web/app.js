@@ -757,43 +757,47 @@ $("#ebSave").addEventListener("click", async () => {
 $("#goLive").addEventListener("click", e => runAction("go_live", "", e.target).then(() => setTimeout(loadIntegrations, 1500)));
 $("#nlSave").addEventListener("click", async () => { const r = await post("api/integrations/newsletter", { url: $("#nlUrl").value.trim() }); toast((r.ok ? "✓ " : "✗ ") + r.message); $("#nlUrl").value = ""; loadIntegrations(); });
 
-/* ---------------- Ask Orbit ---------------- */
+/* ---------------- Ask Orbit ----------------
+   Fully automatic: the Pi routes each question to a mode (Pi, themachine, Network, Money, Market, Overview),
+   picks a quick or deep model, and attaches logs itself. Follow-ups keep context from the last answers. */
 const askHist = [];
-const ASK_CHIPS = ["How is the Pi doing?", "Anything I should fix?", "Why did my last alert fire?", "How is the site making money?", "Explain these logs"];
+const ASK_CHIPS = ["How is everything?", "Is themachine OK?", "Is my tailnet healthy?", "Why did my last alert fire?", "How is the site making money?", "Best GPU deals right now?"];
 function renderAsk() {
-  const chat = askHist.map(m => `<div class="msg ${m.who}${m.wait ? " wait" : ""}">${esc(m.text)}</div>`).join("");
-  const units = [...new Set([...(status?.services || []).map(u => u.unit), "gpu-prices.service", "pi-cloud-backup.service"])];
-  const prev = $("#askSrc")?.value || "";
-  $("#sheetBody").innerHTML = `${askHist.length ? "" : `<p class="mini" style="margin-top:0">Claude on your Pi reads a live snapshot (stats, services, internet, drives, traffic, money, recent alerts) and explains it. It can't run commands or change anything.</p>`}
+  const chat = askHist.map(m => `<div class="msg ${m.who}${m.wait ? " wait" : ""}">${esc(m.text)}${m.tag ? `<div class="msgtag">${esc(m.tag)}</div>` : ""}</div>`).join("");
+  $("#sheetBody").innerHTML = `${askHist.length ? "" : `<p class="mini" style="margin-top:0">Ask anything about the Pi, themachine, your tailnet, the site, money or prices. Orbit picks the topic, the model and any logs it needs on its own. It can't run commands or change anything.</p>`}
     <div class="chat" id="askChat">${chat}</div>
     <div class="chips">${ASK_CHIPS.map(c => `<button data-askchip="${esc(c)}">${esc(c)}</button>`).join("")}</div>
     <div class="askin">
-      <select id="askSrc" aria-label="Include logs"><option value="">No logs</option>${units.map(u => `<option value="unit:${esc(u)}">Include logs: ${esc(u)}</option>`).join("")}${(status?.containers || []).map(c => `<option value="container:${esc(c.name)}">Include logs: 🐳 ${esc(c.name)}</option>`).join("")}</select>
-      <textarea id="askQ" rows="2" placeholder="Ask about your Pi, network, site or money…"></textarea>
-      <button class="btn go wide" id="askGo" style="margin-top:0">ASK</button>
+      <textarea id="askQ" rows="2" placeholder="Ask about your lab, network, site, money or prices…"></textarea>
+      <div class="actions" style="margin:0"><button class="btn go wide" id="askGo" style="margin-top:0">ASK</button>${askHist.length ? '<button class="btn wide" id="askNew" style="margin-top:0">NEW CHAT</button>' : ""}</div>
     </div>`;
-  if (prev) $("#askSrc").value = prev;
   const ch = $("#askChat"); ch.lastElementChild?.scrollIntoView({ block: "end" });
 }
 function openAsk() { $("#sheetTitle").textContent = "Ask Orbit"; renderAsk(); $("#sheet").classList.add("open"); }
 async function sendAsk(q) {
   q = (q || "").trim(); if (!q || askHist.some(m => m.wait)) return;
-  const source = $("#askSrc")?.value || "";
-  askHist.push({ who: "q", text: q }, { who: "a", text: "Thinking… (up to a minute)", wait: true }); renderAsk();
-  const done = (text) => { askHist.pop(); askHist.push({ who: "a", text }); if ($("#sheetTitle").textContent === "Ask Orbit") renderAsk(); };
-  let r; try { r = await post("api/ask", { question: q, source }); } catch { return done("No response from the Pi."); }
+  const history = [];
+  for (let i = 0; i + 1 < askHist.length; i += 2) if (askHist[i + 1].ok) history.push({ q: askHist[i].text, a: askHist[i + 1].text, mode: askHist[i + 1].mode });
+  askHist.push({ who: "q", text: q }, { who: "a", text: "Reading your lab…", wait: true }); renderAsk();
+  const wait = askHist.at(-1);
+  const show = () => { if ($("#sheetTitle").textContent === "Ask Orbit") renderAsk(); };
+  const done = (text, extra = {}) => { Object.assign(wait, { text, wait: false }, extra); show(); };
+  let r; try { r = await post("api/ask", { question: q, history: history.slice(-3) }); } catch { return done("No response from the Pi."); }
   if (!r.ok) return done(r.message || "Couldn't ask.");
-  for (let i = 0; i < 55; i++) {
+  for (let i = 0; i < 110; i++) {
     await new Promise(res => setTimeout(res, 2000));
     let j; try { j = await api("api/ask?id=" + r.id); } catch { continue; }
-    if (j.status === "done") return done(j.answer);
-    if (j.status === "error") return done("⚠ " + j.error);
+    const tag = j.modeLabel ? [j.modeLabel, j.tier === "deep" ? "deep" : "quick", ...(j.logs || []).map(l => "logs: " + l.replace(/\.service$/, ""))].join(" · ") : "";
+    if (j.status === "done") return done(j.answer, { ok: true, mode: j.mode, tag: `${tag} · ${j.model} · ${j.secs}s` });
+    if (j.status === "error") return done("⚠ " + j.error, { tag });
+    if (j.stage && wait.text !== j.stage) { wait.text = j.stage; wait.tag = tag; show(); }
   }
   done("⚠ Timed out waiting for an answer.");
 }
 $("#askBtn").addEventListener("click", openAsk);
 document.addEventListener("click", e => {
   if (e.target.id === "askGo") sendAsk($("#askQ").value);
+  if (e.target.id === "askNew") { askHist.length = 0; renderAsk(); }
   const c = e.target.closest("[data-askchip]"); if (c) sendAsk(c.dataset.askchip);
 });
 document.addEventListener("keydown", e => { if (e.target.id === "askQ" && e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendAsk(e.target.value); } });

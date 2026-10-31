@@ -753,14 +753,9 @@ class Handler(BaseHTTPRequestHandler):
             bg(netradar.speedtest)
             return self._json(200, {"ok": True, "message": "Speed test running (about 30 s)…"})
         if path == "/api/ask":
-            src = body.get("source") or ""
-            logs_txt = None
-            if src.startswith("unit:") or src.startswith("container:"):
-                k, v = src.split(":", 1)
-                code, out = logs({k: [v], "n": ["150"]})
-                logs_txt = out if code == 200 else None
             try:
-                jid = ask.start(str(body.get("question", "")), ask.snapshot(status, SAMPLER, logs_txt))
+                jid = ask.start(str(body.get("question", "")), body.get("history") or [],
+                                {"status": status, "sampler": SAMPLER, "fleet": FLEET, "logs": logs})
             except ValueError as e:
                 return self._json(400, {"ok": False, "message": str(e)})
             return self._json(200, {"ok": True, "id": jid})
