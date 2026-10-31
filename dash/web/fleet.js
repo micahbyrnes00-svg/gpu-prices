@@ -17,7 +17,10 @@
     const stamp = machine.lastSuccess ? new Date(machine.lastSuccess * 1000).toLocaleTimeString() : 'No sample yet';
     const used = Math.max(0, (mem.total || 0) - (mem.avail || 0));
     const heading = `<div class="fleet-heading"><h3>${escape(machine.label)}</h3><span class="fleet-state ${online ? 'up' : 'down'}">${online ? 'ONLINE' : escape(machine.status || 'OFFLINE')}</span></div><p class="fleet-role">${escape(machine.role)}</p>`;
-    if (!online) return `<article class="fleet-card">${heading}<p class="note">No current metrics. Last successful sample: ${escape(stamp)}.</p></article>`;
+    if (!online) {
+      const seen = machine.tailnet?.lastSeen ? ` · on tailnet ${new Date(machine.tailnet.lastSeen * 1000).toLocaleString()}` : '';
+      return `<article class="fleet-card">${heading}<p class="note">No current metrics. Last successful sample: ${escape(stamp)}${escape(seen)}.</p></article>`;
+    }
     const disks = (d.disks || []).map(disk => {
       if (disk.mounted === false) return `<div class="fleet-missing">${escape(disk.label || disk.mount)} · NOT MOUNTED</div>`;
       const total = disk.total || 0, free = disk.free || 0;
@@ -36,7 +39,9 @@
     const drives = (health && health.drives) || [];
     const bad = drives.filter(x => !health.stale && ['attention', 'failed', 'missing'].includes(x.status));
     const healthLine = !drives.length ? '' : `<div class="fleet-foot">Drive health: ${health.stale ? 'stale' : bad.length ? `<span style="color:var(--warn)">${bad.length} need attention</span>` : `${drives.filter(x => x.status === 'passed').length}/${drives.length} passed`}</div>`;
-    return `<article class="fleet-card fleet-link" data-go="${machine.id === 'pi' ? 'pi' : 'themachine'}">${heading}${disks}${io}${healthLine}${backup}<div class="fleet-foot">Updated ${escape(stamp)} · open tab ›</div></article>`;
+    const t = machine.tailnet;
+    const link = t ? `<div class="fleet-foot">Tailnet: ${escape(t.path)} · ${escape(t.ip)}</div>` : '';
+    return `<article class="fleet-card fleet-link" data-go="${machine.id === 'pi' ? 'pi' : 'themachine'}">${heading}${disks}${io}${healthLine}${backup}${link}<div class="fleet-foot">Updated ${escape(stamp)} · open tab ›</div></article>`;
   }
   let pending = false;
   async function refresh() {

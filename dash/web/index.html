@@ -233,6 +233,20 @@
       <canvas class="spark" id="latSpark" height="60" aria-label="Latency, last hour"></canvas>
       <div class="list" id="outages"></div>
     </div>
+    <div class="panel" data-info="tailnet">
+      <div class="ph"><span>TAILNET</span><span class="badge" id="tnState">--</span><button class="btn" id="tnRefresh" aria-label="Refresh tailnet">↻</button></div>
+      <div class="stats3">
+        <div><div class="k">ONLINE</div><div class="v" id="tnCount">--</div></div>
+        <div><div class="k">DERP</div><div class="v" id="tnDerp">--</div></div>
+        <div><div class="k">NAT</div><div class="v" id="tnNat">--</div></div>
+      </div>
+      <div class="note" id="tnNote"></div>
+      <div class="list" id="tnPeers"><div class="note">Loading…</div></div>
+      <div class="section-sub">SERVE &amp; FUNNEL</div>
+      <div class="list" id="tnServe"></div>
+      <button class="btn wide" id="tnUpdate" data-act="ts_update" data-target="" hidden>UPDATE TAILSCALE ON THE PI</button>
+      <div class="addrow"><input id="tnKey" type="password" autocomplete="off" placeholder="Admin API token (tskey-api-…)" style="flex:1;width:auto" aria-label="Tailscale API token"><button class="btn go" id="tnKeySave">SAVE</button></div>
+    </div>
     <div class="panel" data-info="sites">
       <div class="ph"><span>WEBSITES</span><button class="btn" id="sitesCheck">↻</button></div>
       <div class="list" id="sites"></div>
@@ -465,5 +479,6 @@
 <script src="app.js"></script>
 <script src="machine.js"></script>
 <script src="fleet.js"></script>
+<script src="tailnet.js"></script>
 </body>
 </html>

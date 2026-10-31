@@ -269,6 +269,7 @@ dashinstall)  # Pi Command iPhone app: service + limited sudo rules + private HT
     echo "pi ALL=(root) NOPASSWD: /usr/bin/systemctl reboot"
     echo "pi ALL=(root) NOPASSWD: /usr/bin/tailscale funnel --bg 8088"
     echo "pi ALL=(root) NOPASSWD: /usr/bin/tailscale funnel --https=443 off"
+    echo "pi ALL=(root) NOPASSWD: /usr/bin/tailscale update --yes"
     for d in sat 'sat\,12' 'sat\,16' usbjmicron usbsunplus usbcypress; do echo "pi ALL=(root) NOPASSWD: /usr/sbin/smartctl -a -j -d $d /dev/sd[a-z]"; done
     echo "pi ALL=(root) NOPASSWD: /usr/bin/systemctl start --no-block apt-daily-upgrade.service"
   } > "$tmp"
@@ -445,6 +446,19 @@ p = pathlib.Path.home() / "orbit-mcp/keys.json"
 k = json.loads(p.read_text() or "{}"); key = "orb_" + secrets.token_urlsafe(24); k[key] = sys.argv[1]
 p.write_text(json.dumps(k, indent=1)); print(key)
 PY
+  ;;
+tsapi)  # type a Tailscale admin API access token (hidden) for Orbit's Tailnet panel and test it
+  read -rsp "Tailscale API access token (hidden, starts tskey-api-): " k; echo
+  case "$k" in tskey-api-*) ;; *) echo "Use an API access token (tskey-api-...), from login.tailscale.com/admin/settings/keys"; exit 1;; esac
+  python3 -c 'import sys,json,urllib.request;r=urllib.request.urlopen(urllib.request.Request("https://api.tailscale.com/api/v2/tailnet/-/devices",headers={"Authorization":"Bearer "+sys.argv[1]}),timeout=15);print("Tailscale API OK:",len(json.load(r)["devices"]),"devices")' "$k" || { echo "Tailscale rejected the token"; exit 1; }
+  bash "$0" setenv TAILSCALE_API_KEY "$k" >/dev/null; unset k
+  echo "Saved. Orbit picks it up within 10 minutes (Network > Tailnet > refresh for now)."
+  ;;
+tailnet)  # one-screen tailnet report: devices, paths, serve/Funnel, DERP latency, version
+  tailscale version | head -1
+  tailscale status
+  echo "== serve / funnel"; tailscale serve status 2>&1 | head -20
+  echo "== netcheck"; tailscale netcheck 2>&1 | grep -E "UDP|Nearest DERP|MappingVariesByDestIP|IPv4|IPv6" 
   ;;
 aikey)  # type your OpenRouter API key (hidden, never shown) and test it with one tiny request
   read -rsp "OpenRouter API key (hidden): " k; echo
