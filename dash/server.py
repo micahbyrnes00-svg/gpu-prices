@@ -59,6 +59,8 @@ class Sampler:
         self._prev_io = None
         self._slow_at = 0
         self._slow = {}
+        mp = Path("/proc/device-tree/model")
+        self._const = {"model": mp.read_text().strip("\x00\n") if mp.exists() else "", "host": os.uname().nodename}
         threading.Thread(target=self._loop, daemon=True).start()
 
     @staticmethod
@@ -162,7 +164,32 @@ class Sampler:
                 del h[:-120]
 
     @staticmethod
-    def _slow_stats():
+    def _throttled():
+        """Firmware throttle flags. sysfs on current Pi kernels (no fork); vcgencmd as fallback."""
+        f = Path("/sys/devices/platform/soc/soc:firmware/get_throttled")
+        try:
+            return hex(int(f.read_text().strip(), 16))
+        except (OSError, ValueError):
+            pass
+        if shutil.which("vcgencmd"):
+            _, out = sh(["vcgencmd", "get_throttled"], 3)
+            m = re.search(r"0x[0-9a-fA-F]+", out)
+            return m.group(0) if m else None
+        return None
+
+    @staticmethod
+    def _clock():
+        try:
+            return int(Path("/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq").read_text()) // 1000
+        except (OSError, ValueError):
+            pass
+        if shutil.which("vcgencmd"):
+            _, out = sh(["vcgencmd", "measure_clock", "arm"], 3)
+            m = re.search(r"=(\d+)", out)
+            return int(m.group(1)) // 1_000_000 if m else None
+        return None
+
+    def _slow_stats(self):
         disks = []
         for mount in ("/", "/boot/firmware"):
             try:
@@ -171,28 +198,14 @@ class Sampler:
                               "free": st.f_bavail * st.f_frsize})
             except OSError:
                 pass
-        throttled = None
-        if shutil.which("vcgencmd"):
-            _, out = sh(["vcgencmd", "get_throttled"], 3)
-            m = re.search(r"0x[0-9a-fA-F]+", out)
-            throttled = m.group(0) if m else None
-        clock = None
-        if shutil.which("vcgencmd"):
-            _, out = sh(["vcgencmd", "measure_clock", "arm"], 3)
-            m = re.search(r"=(\d+)", out)
-            clock = int(m.group(1)) // 1_000_000 if m else None
+        throttled, clock = self._throttled(), self._clock()
         _, out = sh(["ps", "-eo", "pid,pcpu,pmem,comm", "--sort=-pcpu", "--no-headers"], 3)
         procs = []
         for line in out.splitlines()[:8]:
             f = line.split(None, 3)
             if len(f) == 4 and f[3] not in ("ps",):
                 procs.append({"pid": int(f[0]), "cpu": float(f[1]), "mem": float(f[2]), "name": f[3]})
-        model = ""
-        mp = Path("/proc/device-tree/model")
-        if mp.exists():
-            model = mp.read_text().strip("\x00\n")
-        return {"disks": disks, "throttled": throttled, "clock": clock, "procs": procs[:6],
-                "model": model, "host": os.uname().nodename}
+        return {"disks": disks, "throttled": throttled, "clock": clock, "procs": procs[:6], **self._const}
 
     def _loop(self):
         while True:
@@ -231,26 +244,38 @@ def cached_bg(key, ttl, fn, placeholder):
     return hit[1] if hit else placeholder
 
 
+_keylocks = {}
+_keylocks_guard = threading.Lock()
+
+
 def cached(key, ttl, fn):
+    """TTL cache; concurrent callers for the same key wait for one computation instead of each running it."""
     hit = _cache.get(key)
     if hit and time.time() - hit[0] < ttl:
         return hit[1]
-    try:
-        val = fn()
-    except Exception as e:  # noqa: BLE001
-        val = {"error": str(e)}
-    _cache[key] = (time.time(), val)
-    return val
+    with _keylocks_guard:
+        lock = _keylocks.setdefault(key, threading.Lock())
+    with lock:
+        hit = _cache.get(key)
+        if hit and time.time() - hit[0] < ttl:
+            return hit[1]
+        try:
+            val = fn()
+        except Exception as e:  # noqa: BLE001
+            val = {"error": str(e)}
+        _cache[key] = (time.time(), val)
+        return val
 
 
 def services():
+    """All watched units in one `systemctl show` call (blocks come back in request order)."""
+    _, text = sh(["systemctl", "show", *UNITS, "-p", "Id,LoadState,ActiveState,SubState,Description"], 5)
     out = []
-    for u in UNITS:
-        _, load = sh(["systemctl", "show", u, "-p", "LoadState,ActiveState,SubState,Description"], 3)
-        props = dict(l.split("=", 1) for l in load.splitlines() if "=" in l)
-        if props.get("LoadState") != "loaded":
+    for block in text.strip().split("\n\n"):
+        props = dict(l.split("=", 1) for l in block.splitlines() if "=" in l)
+        if props.get("LoadState") != "loaded" or props.get("Id") not in UNITS:
             continue
-        out.append({"unit": u, "active": props.get("ActiveState"), "sub": props.get("SubState"),
+        out.append({"unit": props["Id"], "active": props.get("ActiveState"), "sub": props.get("SubState"),
                     "desc": props.get("Description", "")})
     return out
 
@@ -287,22 +312,7 @@ def containers():
 
 
 def tailscale():
-    code, out = sh(["tailscale", "status", "--json"], 5)
-    if code:
-        return {}
-    s = json.loads(out)
-    self_ = s.get("Self", {})
-    peers = [{"name": (p.get("DNSName") or p.get("HostName") or "").split(".")[0], "online": p.get("Online"), "os": p.get("OS")}
-             for p in (s.get("Peer") or {}).values()]
-    _, fun = sh(["tailscale", "funnel", "status", "--json"], 5)
-    funnel_on = False
-    try:
-        fj = json.loads(fun)
-        funnel_on = bool(fj.get("AllowFunnel"))
-    except ValueError:
-        pass
-    return {"dns": self_.get("DNSName", "").rstrip("."), "ip": (self_.get("TailscaleIPs") or [""])[0],
-            "online": self_.get("Online"), "peers": peers, "funnel": funnel_on}
+    return tailnet.summary()
 
 
 def market():
@@ -312,11 +322,15 @@ def market():
     if not tcfg.DB_PATH.exists():
         return {"ready": False, "note": "Waiting for eBay keys and the first price run.", "site": tcfg.SITE_URL}
     con = tdb.connect()
-    runs = con.execute("SELECT COUNT(*), MAX(ts), SUM(source='sample') FROM runs").fetchone()
-    if not runs[0]:
-        return {"ready": False, "note": "No price runs yet.", "site": tcfg.SITE_URL}
-    models = tcfg.load_models()["models"]
-    reps = [tstats.model_report(con, m) for m in models]
+    try:
+        runs = con.execute("SELECT COUNT(*), MAX(ts), SUM(source='sample') FROM runs").fetchone()
+        if not runs[0]:
+            return {"ready": False, "note": "No price runs yet.", "site": tcfg.SITE_URL}
+        cfg = tcfg.load_models()
+        models = cfg["models"]
+        reps = [tstats.model_report(con, m) for m in models]
+    finally:
+        con.close()
     site = tcfg.SITE_URL
     rows = []
     deals = []
@@ -344,7 +358,7 @@ def market():
             "deals": deals[:8], "site": site, "allListings": listings,
             "models": [{"id": m["id"], "name": m["name"]} for m in models],
             "cats": [{"id": c, "label": v["label"], "chg7": tstats.market_index(reps, c, "chg_7d")}
-                     for c, v in tcfg.load_models()["categories"].items() if any(r["cat"] == c for r in rows)]}
+                     for c, v in cfg["categories"].items() if any(r["cat"] == c for r in rows)]}
 
 
 def model_history(mid):
@@ -354,14 +368,18 @@ def model_history(mid):
     if not m or not tcfg.DB_PATH.exists():
         return None
     con = tdb.connect()
-    r = tstats.model_report(con, m)
+    try:
+        r = tstats.model_report(con, m)
+        new_series = tstats.daily_series(con, mid, "new")
+    finally:
+        con.close()
     ser = r["series"]
     if not ser:
         return {"id": mid, "name": m["name"], "series": []}
     cur = ser[-1]["median"]
     med = [p["median"] for p in ser]
     prior = med[-91:-1]
-    return {"id": mid, "name": m["name"], "cat": m["cat"], "series": ser, "newSeries": tstats.daily_series(con, mid, "new"),
+    return {"id": mid, "name": m["name"], "cat": m["cat"], "series": ser, "newSeries": new_series,
             "current": cur, "chg7": r["chg_7d"], "chg30": r["chg_30d"],
             "low90": min(med[-90:]), "high90": max(med[-90:]), "lowAll": min(med), "highAll": max(med),
             "signal": len(ser) >= 15 and bool(prior) and cur <= min(prior),
@@ -406,8 +424,7 @@ def act(body):
             return 400, "unit not allowed"
         code, out = sh(SUDO_SYSTEMCTL + [a, target], 30)
     elif a == "container_restart":
-        names = {c["name"] for c in containers()}
-        if target not in names:
+        if target not in {c["name"] for c in cached("containers", 5, containers)}:
             return 400, "unknown container"
         code, out = sh(["docker", "restart", target], 60)
     elif a == "run_prices" and env_get("PRICES_WORKER"):
@@ -426,6 +443,18 @@ def act(body):
             out = "Collecting live prices for every model. This takes 15-30 minutes, and you'll get a notification when the site is live."
     elif a == "run_backup":
         code, out = sh(SUDO_SYSTEMCTL + ["start", "--no-block", "pi-cloud-backup.service"], 10)
+    elif a == "ts_authorize":
+        try:
+            code, out = 0, tailnet.authorize(target)
+        except Exception as e:  # noqa: BLE001
+            code, out = 1, f"Tailscale API: {e}"
+    elif a == "ts_keyexpiry":
+        try:
+            code, out = 0, tailnet.disable_key_expiry(target)
+        except Exception as e:  # noqa: BLE001
+            code, out = 1, f"Tailscale API: {e}"
+    elif a == "ts_update":
+        code, out = sh(["sudo", "-n", "/usr/bin/tailscale", "update", "--yes"], 300)
     elif a == "funnel_on":
         code, out = sh(["sudo", "-n", "/usr/bin/tailscale", "funnel", "--bg", "8088"], 20)
     elif a == "funnel_off":
@@ -447,6 +476,8 @@ def act(body):
         return 400, "unknown action"
     for k in ("services", "containers", "timers", "tailscale"):
         _cache.pop(k, None)
+    if a.startswith(("funnel", "ts_")):
+        tailnet.invalidate("serve", "status")
     return (200 if code == 0 else 500), out.strip()[-400:] or "ok"
 
 
@@ -487,12 +518,14 @@ import store  # noqa: E402
 import webauthn  # noqa: E402
 import webpush  # noqa: E402
 import fleet  # noqa: E402
+import tailnet  # noqa: E402
 
 SAMPLER = Sampler()
 FLEET = fleet.Fleet(STATE)
-WATCHER = monitor.Watcher(SAMPLER, status)
+WATCHER = monitor.Watcher(SAMPLER, status, FLEET)
 LOG_UNITS = [u for u in UNITS] + ["gpu-prices.service", "pi-cloud-backup.service", "picommand.service"]
-GATED = {"reboot", "stop", "funnel_on", "funnel_off", "update_app", "apply_updates"}
+GATED = {"reboot", "stop", "funnel_on", "funnel_off", "update_app", "apply_updates",
+         "ts_authorize", "ts_keyexpiry", "ts_update"}
 
 
 def needs_unlock(action):
@@ -508,7 +541,7 @@ def logs(q):
             return 400, "unit not allowed"
         _, out = sh(["journalctl", "-u", unit, "-n", str(n), "--no-pager", "-o", "short-iso"], 15)
     elif ctr:
-        if ctr not in {c["name"] for c in containers()}:
+        if ctr not in {c["name"] for c in cached("containers", 5, containers)}:
             return 400, "unknown container"
         _, out = sh(["docker", "logs", "--tail", str(n), "--timestamps", ctr], 15)
     else:
@@ -520,20 +553,11 @@ ENV_FILE = REPO / ".env"
 
 
 def env_get(key):
-    try:
-        for line in ENV_FILE.read_text().splitlines():
-            if line.startswith(key + "="):
-                return line.split("=", 1)[1]
-    except OSError:
-        pass
-    return ""
+    return integrations.env_get(key)
 
 
 def env_set(key, val):
-    lines = ENV_FILE.read_text().splitlines() if ENV_FILE.exists() else []
-    lines = [l for l in lines if not l.startswith(key + "=")] + [f"{key}={val}"]
-    ENV_FILE.write_text("\n".join(lines) + "\n")
-    ENV_FILE.chmod(0o600)
+    integrations.env_set(key, val)
 
 
 def discord_test(url):
@@ -653,13 +677,15 @@ class Handler(BaseHTTPRequestHandler):
             j = ask.job((qs.get("id") or [""])[0])
             return self._json(200 if j else 404, j or {"status": "error", "error": "Unknown or expired question"})
         if path == "/api/widget/info":
-            dns = (tailscale() or {}).get("dns")
+            dns = (cached("tailscale", 15, tailscale) or {}).get("dns")
             host = f"{dns}:8443" if dns else self._host()
             return self._json(200, {"token": widget_token(), "url": f"https://{host}/api/widget", "script": widget_script(host)})
         if path == "/api/integrations":
             st = integrations.status(analytics.amazon_status(), bool(store.get("widget_token")))
             st["golive"] = store.get("golive")
             return self._json(200, st)
+        if path == "/api/tailnet":
+            return self._json(200, tailnet.full())
         if path == "/api/me":
             return self._json(200, {"login": self.headers.get("Tailscale-User-Login", "local"),
                                     "name": self.headers.get("Tailscale-User-Name", "")})
@@ -796,12 +822,38 @@ class Handler(BaseHTTPRequestHandler):
                 ok, msg = integrations.test_discord(body.get("key") or "DISCORD_WEBHOOK")
             elif which == "ebay":
                 ok, msg = integrations.test_ebay()
+            elif which == "tailscale":
+                ok, msg = tailnet.test_api()
             elif which == "cloudflare":
                 c = integrations.site_check(env_get("SITE_URL") + "/", force=True)
                 ok, msg = c["ok"], f"Site answered {c.get('code') or c.get('error')}"
             else:
                 return self._json(400, {"ok": False, "message": "Nothing to test"})
             return self._json(200, {"ok": ok, "message": msg})
+        if path == "/api/tailnet/ping":
+            try:
+                return self._json(200, {"ok": True, **tailnet.ping(str(body.get("peer", "")))})
+            except ValueError as e:
+                return self._json(400, {"ok": False, "message": str(e)})
+        if path == "/api/tailnet/refresh":
+            tailnet.invalidate("status", "serve", "netcheck")
+            tailnet.devices(force=True)
+            return self._json(200, {"ok": True})
+        if path == "/api/integrations/tailscale":
+            key = str(body.get("key", "")).strip()
+            if not key:
+                env_set("TAILSCALE_API_KEY", "")
+                tailnet.invalidate("api")
+                return self._json(200, {"ok": True, "message": "Tailscale API disconnected"})
+            if not re.match(r"^tskey-api-[A-Za-z0-9-]{10,200}$", key):
+                return self._json(400, {"ok": False, "message": "Paste an API access token (starts with tskey-api-)"})
+            old = env_get("TAILSCALE_API_KEY")
+            env_set("TAILSCALE_API_KEY", key)
+            ok, msg = tailnet.test_api()
+            if not ok:
+                env_set("TAILSCALE_API_KEY", old)
+                return self._json(400, {"ok": False, "message": msg})
+            return self._json(200, {"ok": True, "message": msg})
         if path == "/api/network/wake":
             try:
                 t = netradar.wake(body.get("mac", ""))

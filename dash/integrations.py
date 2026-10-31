@@ -18,21 +18,38 @@ DISCORD_KEYS = [("DISCORD_WEBHOOK", "#deals (main)"), ("DISCORD_WEBHOOK_GPU", "#
                 ("DISCORD_WEBHOOK_REPORT", "#market-report")]
 
 
-def env_get(key):
+_env = (None, {})
+
+
+def _env():
+    """Parsed .env, re-read only when the file changes (the watcher asks many times a minute)."""
+    global _env
     try:
-        for line in ENV.read_text().splitlines():
-            if line.startswith(key + "="):
-                return line.split("=", 1)[1].strip()
+        st = ENV.stat()
+        stamp = (st.st_mtime_ns, st.st_size)
     except OSError:
-        pass
-    return ""
+        return {}
+    if _env[0] != stamp:
+        vals = {}
+        for line in ENV.read_text().splitlines():
+            if "=" in line and not line.lstrip().startswith("#"):
+                k, v = line.split("=", 1)
+                vals.setdefault(k, v.strip())
+        _env = (stamp, vals)
+    return _env[1]
+
+
+def env_get(key):
+    return _env().get(key, "")
 
 
 def env_set(key, val):
+    global _env
     lines = ENV.read_text().splitlines() if ENV.exists() else []
     lines = [l for l in lines if not l.startswith(key + "=")] + [f"{key}={val}"]
     ENV.write_text("\n".join(lines) + "\n")
     ENV.chmod(0o600)
+    _env = (None, {})
 
 
 def _sh(cmd, timeout=10):
@@ -160,6 +177,15 @@ def status(amazon_status, widget_has_token):
     nl = env_get("NEWSLETTER_URL")
     items.append({"id": "newsletter", "name": "Price-drop emails", "state": "on" if nl else "off",
                   "detail": "Signup form live on the site" if nl else "Make a free Buttondown account, then paste its form URL", "link": "https://buttondown.com/"})
+    import tailnet
+    ts = tailnet.status()
+    me = ts.get("self") or {}
+    api = tailnet.api_enabled()
+    items.append({"id": "tailscale", "name": "Tailscale", "state": "warn" if ts.get("error") or ts.get("updateAvailable") else "on",
+                  "detail": ts.get("error") or (f"{me.get('name')} · {sum(p['online'] for p in ts['peers'])}/{len(ts['peers'])} devices online · v{ts['version']}"
+                                                + (f" (update {ts['latest']})" if ts.get("updateAvailable") else "")
+                                                + (" · admin API on" if api else " · admin API off")),
+                  "link": "https://login.tailscale.com/admin/machines", "test": api})
     items.append({"id": "widget", "name": "iPhone widget", "state": "on" if widget_has_token else "off",
                   "detail": "Scriptable · works over Tailscale", "link": None})
     return {"items": items, "discordHooks": hooks, "discordInvite": invite, "discordCounts": dc, "discordGrowth": discord_growth(),

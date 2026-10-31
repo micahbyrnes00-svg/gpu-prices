@@ -40,6 +40,20 @@ To publish on GitHub Pages instead, set `PUBLISH=github` and `SITE_DIR=docs` in 
 
 Other helpers: `p.sh web` (serve demo or real site), `p.sh status`, `p.sh diag`, `p.sh cloudsetup` / `cloudrun` (encrypted weekly OS backup to Google Drive).
 
+## Tailscale management (Orbit)
+Orbit reads the tailnet through the local `tailscale` CLI (no sudo) and shows it on **Network → Tailnet**:
+every device with online state, direct vs DERP-relay path, last seen, `tailscale ping`, the Pi's
+`serve`/Funnel routes, nearest DERP latency and NAT type. themachine is found by its tailnet name
+(`FLEET_HOST`, default `themachine`), so the hardcoded address is only a fallback.
+
+Alerts: watched devices (★) off the tailnet, node keys expiring, a Tailscale update for the Pi, and
+themachine offline / drive unmounted / SMART failed / backup failed / disk full.
+
+Optional admin API (`bash p.sh tsapi`, or paste the token in the panel) adds per-device client update
+status and key expiry, plus Face ID-gated **Approve** and **No expiry** actions. `bash p.sh tailnet`
+prints the same report in a terminal. Re-run `bash p.sh dashinstall` once to allow `tailscale update`
+from Orbit.
+
 ## Adding a model
 Add an entry to `config/models.json`. `must` words must all appear in the title, `exclude` words reject it, and `min`/`max` set the plausible USD window. RAM entries take `gb` for price per GB.
 

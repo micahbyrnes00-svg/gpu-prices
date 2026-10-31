@@ -42,13 +42,29 @@ RULES = {
     "ssh":       ("SSH login", "info", True, {}, "Someone signed in to the Pi over SSH."),
     "sshfail":   ("SSH attack", "warning", True, {"fails": 5}, "Failed SSH logins in 10 minutes reach the limit."),
     "probe":     ("Site probing", "warning", True, {"hits": 20}, "One visitor triggers this many error pages in 10 minutes (bots scanning for weaknesses)."),
+    "machine":   ("themachine problem", "critical", True, {"disk": 90}, "themachine goes offline for 3+ minutes, a data drive unmounts or fails SMART, its local backup fails, or a disk passes the limit (%)."),
+    "peer":      ("Tailnet device offline", "warning", True, {"minutes": 10}, "A device you watch on the Tailnet panel stays offline this many minutes, plus a recovery notice."),
+    "tskey":     ("Tailscale key expiring", "warning", True, {"days": 14}, "A tailnet device's node key expires within the limit (days). Expired keys drop the device off the tailnet."),
+    "tsupdate":  ("Tailscale update", "info", True, {}, "A newer Tailscale client is available for the Pi."),
     "digest":    ("Weekly AI digest", "info", False, {"hour": 9}, "Sunday morning: Claude on the Pi summarizes the week's health, traffic, money and prices."),
     "daily":     ("Daily summary", "info", False, {"hour": 8}, "One morning summary: health, visitors, clicks, deals."),
 }
 SCHEDULE = {"net_scan_min": 10, "speedtest_hours": 6, "smart_min": 30, "site_min": 5, "security_hours": 6}
 
 
+_cfg = None
+
+
 def config():
+    """Alert config, built once and reused until it is saved (read many times per watcher pass)."""
+    global _cfg
+    if _cfg is None:
+        _cfg = _build_config()
+    return _cfg
+
+
+def _build_config():
+    import fleet
     c = store.get("alert_cfg", {})
     rules = {}
     for k, (label, level, on, params, desc) in RULES.items():
@@ -56,7 +72,8 @@ def config():
         rules[k] = {"label": label, "level": level, "desc": desc, "enabled": r.get("enabled", on),
                     "params": {**params, **{p: v for p, v in r.get("params", {}).items() if p in params}}}
     return {"rules": rules, "quiet": c.get("quiet", {"enabled": False, "start": 23, "end": 7}),
-            "watchlist": c.get("watchlist", []), "schedule": {**SCHEDULE, **c.get("schedule", {})}}
+            "watchlist": c.get("watchlist", []), "schedule": {**SCHEDULE, **c.get("schedule", {})},
+            "tsWatch": c.get("tsWatch", [fleet.HOST])}
 
 
 def save_config(new):
@@ -85,7 +102,11 @@ def save_config(new):
             if k in SCHEDULE and isinstance(v, (int, float)) and v > 0:
                 s[k] = v
         c["schedule"] = s
+    if isinstance(new.get("tsWatch"), list):
+        c["tsWatch"] = sorted({str(n).lower()[:63] for n in new["tsWatch"] if isinstance(n, str) and n.strip()})[:50]
+    global _cfg
     store.put("alert_cfg", c)
+    _cfg = None
     return config()
 
 
@@ -126,10 +147,12 @@ def history(limit=60):
 
 # ---------------------------------------------------------------- the watcher
 class Watcher:
-    def __init__(self, sampler, status_fn):
+    def __init__(self, sampler, status_fn, fleet=None):
         self.sampler = sampler
         self.status_fn = status_fn
+        self.fleet = fleet
         self.state = store.get("watch_state", {})
+        self._saved = json.dumps(self.state, sort_keys=True)
         self.hot = 0
         self.net_fail = 0
         self.net_down_since = None
@@ -137,13 +160,17 @@ class Watcher:
         threading.Thread(target=self._loop, daemon=True).start()
 
     def _save(self):
-        store.put("watch_state", self.state)
+        cur = json.dumps(self.state, sort_keys=True)
+        if cur != self._saved:  # skip the SQLite write when nothing changed
+            store.put("watch_state", self.state)
+            self._saved = cur
 
     def _loop(self):
         time.sleep(15)
         while True:
             for job in (self._system, self._units, self._jobs, self._auto_prices, self._net, self._scan, self._smart,
-                        self._speed, self._traffic, self._deals, self._sites, self._security, self._buy, self._amazon, self._discord, self._digest, self._daily):
+                        self._speed, self._traffic, self._deals, self._sites, self._security, self._buy, self._amazon, self._discord,
+                        self._machine, self._tailnet, self._digest, self._daily):
                 try:
                     job()
                 except Exception:  # noqa: BLE001
@@ -443,6 +470,86 @@ class Watcher:
             n = c["members"] - last
             fire("discord", f"+{n} Discord member{'s' if n != 1 else ''}", f"Your deals server now has {c['members']} members ({c['online']} online).",
                  url="/#market", key="discord-join", cooldown=86400)
+
+    def _machine(self):
+        """themachine health from the fleet poller (no extra SSH)."""
+        if not self.fleet:
+            return
+        r = self.fleet.remote_state()
+        name = r.get("label", "themachine")
+        st = self.state.setdefault("machine", {})
+        if not r.get("online"):
+            since = st.setdefault("down", time.time())
+            if time.time() - since >= 180 and not st.get("alerted"):
+                st["alerted"] = True
+                why = "Tailscale shows it offline" if r.get("status") == "Offline" else "it isn't answering over SSH"
+                fire("machine", f"{name} is offline", f"No metrics for {int((time.time() - since) / 60)} min: {why}.",
+                     url="/#themachine", key="machine-down", cooldown=0)
+            return
+        if st.pop("alerted", False):
+            fire("machine", f"{name} is back online", f"Down for about {int((time.time() - st['down']) / 60)} min.",
+                 url="/#themachine", key="machine-up", cooldown=0)
+        st.pop("down", None)
+        d = r.get("metrics") or {}
+        lim = config()["rules"]["machine"]["params"]["disk"]
+        for disk in d.get("disks", []):
+            label = disk.get("label") or disk.get("mount")
+            if disk.get("mounted") is False:
+                fire("machine", f"{name}: {label} not mounted", f"{disk.get('mount')} is missing. Shares and backups on it are unavailable.",
+                     url="/#themachine", key="machine-mount-" + str(disk.get("mount")), cooldown=6 * 3600)
+            elif disk.get("total"):
+                pct = (1 - disk["free"] / disk["total"]) * 100
+                if pct >= lim:
+                    fire("machine", f"{name}: {label} {pct:.0f}% full", f"{disk.get('mount')} is at {pct:.0f}% (limit {lim}%).",
+                         url="/#themachine", key="machine-full-" + str(disk.get("mount")), cooldown=12 * 3600)
+        health = d.get("driveHealth") or {}
+        if not health.get("stale"):
+            for drv in health.get("drives", []):
+                if drv.get("status") in ("failed", "missing"):
+                    fire("machine", f"{name}: {drv.get('label')} {drv['status'].upper()}", drv.get("message") or "Check the drive now.",
+                         url="/#themachine", key="machine-smart-" + str(drv.get("device")), cooldown=6 * 3600)
+        b = d.get("backup") or {}
+        if b.get("configured") and b.get("status") == "failed":
+            fire("machine", f"{name}: local backup failed", b.get("error") or "The nightly backup to the 4 TB drive failed.",
+                 url="/#themachine", key="machine-backup", cooldown=12 * 3600)
+
+    def _tailnet(self):
+        """Watched devices offline, node keys near expiry, Tailscale update for the Pi (cached CLI, every 2 min)."""
+        if time.time() < self.next.get("tailnet", 0):
+            return
+        self.next["tailnet"] = time.time() + 120
+        import tailnet
+        ts = tailnet.status()
+        if ts.get("error"):
+            return
+        cfg = config()
+        watch = set(cfg["tsWatch"])
+        mins = cfg["rules"]["peer"]["params"]["minutes"]
+        down = self.state.setdefault("ts_down", {})
+        for p in ts["peers"]:
+            if p["name"].lower() not in watch:
+                continue
+            if not p["online"]:
+                since = down.setdefault(p["name"], p.get("lastSeen") or time.time())
+                if time.time() - since >= mins * 60:
+                    fire("peer", f"{p['name']} is off the tailnet", f"Last seen {datetime.fromtimestamp(since).strftime('%b %d %H:%M')}.",
+                         url="/#network", key="peer-" + p["name"], cooldown=86400)
+            elif p["name"] in down:
+                since = down.pop(p["name"])
+                if time.time() - since >= mins * 60:
+                    fire("peer", f"{p['name']} is back on the tailnet", f"Connected {p['path']}.", url="/#network",
+                         key="peerup-" + p["name"], cooldown=0)
+        days = cfg["rules"]["tskey"]["params"]["days"]
+        for n in [ts["self"], *ts["peers"]]:
+            exp = n.get("keyExpiry")
+            if exp and 0 < exp - time.time() <= days * 86400:
+                left = (exp - time.time()) / 86400
+                fire("tskey", f"{n['name']}: Tailscale key expires in {left:.0f} days",
+                     "Re-authenticate it, or disable key expiry for it on the Tailnet panel.", url="/#network",
+                     key="tskey-" + n["name"], cooldown=3 * 86400)
+        if ts.get("updateAvailable"):
+            fire("tsupdate", "Tailscale update available", f"Pi runs {ts['version']}; {ts.get('latest') or 'a newer version'} is out. Update from the Tailnet panel.",
+                 url="/#network", key="tsupdate-" + str(ts.get("latest")), cooldown=7 * 86400)
 
     def _digest(self):
         r = config()["rules"]["digest"]

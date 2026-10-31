@@ -80,6 +80,10 @@ const INFO = {
   faceid: ["Face ID", `<p>Adds a <b>passkey</b> (WebAuthn), a cryptographic key pair whose private half stays in the phone's Secure Enclave and is unlocked by Face ID. The Pi keeps only the public key.</p>
 <p>Once it's set up, risky actions ask for Face ID first: reboot, stopping services, going public and updating. The phone signs a one-time challenge from the Pi, and the Pi checks the signature before allowing the action. One approval lasts 5 minutes.</p>
 <p>This is a second layer on top of the Tailscale login check.</p>`],
+  tailnet: ["Tailnet", `<p>Every device signed in to your <b>Tailscale</b> network. <b>Direct</b> means the two devices talk peer-to-peer over WireGuard; <b>relay</b> means traffic goes through a Tailscale DERP server, which works everywhere but adds latency. <b>PING</b> runs <code>tailscale ping</code> from the Pi to show the current path and round-trip time.</p>
+<p><b>★</b> watches a device: Orbit alerts you when it stays off the tailnet (time limit in Alerts → Tailnet device offline). <b>DERP</b> is the Pi's nearest relay and its latency; <b>NAT</b> shows whether the Pi's router allows direct connections (<i>easy</i>) or forces more relaying (<i>hard</i>).</p>
+<p><b>Serve &amp; Funnel</b> lists what the Pi publishes with <code>tailscale serve</code>. Routes marked PUBLIC are on the internet through Funnel; the rest are tailnet-only.</p>
+<p>The optional <b>admin API token</b> (Tailscale admin console → Settings → Keys → Generate access token) adds client update status and key expiry for every device, plus <b>APPROVE</b> for devices waiting on approval and <b>NO EXPIRY</b> to stop a server's key from expiring. Those actions ask for Face ID. The token is stored only in the Pi's <code>.env</code>.</p>`],
   sites: ["Website monitor", `<p>Every few minutes the Pi requests each website like a browser would and records the <b>HTTP status code</b> (200 means OK, 4xx/5xx means an error) and how long the response took.</p>
 <p>For HTTPS sites it also reads the site's <b>TLS certificate</b>, the file that proves the site's identity and enables encryption, and shows how many days until it expires. An expired certificate makes browsers show a security warning.</p>
 <p>Two failed checks in a row send a "down" alert, and another when it recovers. The checks run from your home connection, so if your internet is down every site will look down too. The Internet panel shows when that happens.</p>`],
@@ -228,7 +232,8 @@ function connect() {
   es = new EventSource("api/stream");
   es.onmessage = e => { gotMsg = true; fails = 0; setLink(true, "LIVE"); onLive(JSON.parse(e.data)); };
   es.onerror = () => { setLink(false, "RETRY"); es.close(); fails++; setTimeout(connect, 3000); };
-  setTimeout(() => { if (!gotMsg) { fails = 2; es.close(); poll(); } }, 8000);
+  const mine = es;
+  setTimeout(() => { if (!gotMsg && es === mine && !document.hidden) { fails = 2; es.close(); poll(); } }, 8000);
 }
 async function seedHistory() {
   try { const d = await api("api/live"); if (d.history) { hist.cpu = d.history.cpu; hist.rx = d.history.rx; hist.tx = d.history.tx; } if (d.cpu != null) onLive(d); } catch { }
@@ -301,6 +306,7 @@ async function runAction(action, target, btn) {
   } catch { toast("✗ no response"); }
   btn?.classList.remove("busy");
   setTimeout(loadStatus, 1200);
+  if (cur === "network" && action.startsWith("ts_")) setTimeout(() => window.loadTailnet?.(true), 1500);
 }
 document.addEventListener("click", e => {
   const info = e.target.closest("[data-info-btn]"); if (info) { openInfo(info.dataset.infoBtn); return; }
@@ -358,7 +364,7 @@ function addInfoButtons() {
 let cur = "system";
 function onView(v) {
   cur = v;
-  if (v === "network") { loadNetwork(); loadSites(); }
+  if (v === "network") { loadNetwork(); loadSites(); window.loadTailnet?.(); }
   if (v === "market") { loadStatus(); loadMoney(); loadFunnel(); if (!window._dcGrowth) loadIntegrations(); }
   if (v === "alerts") { loadAlerts(); $("#alertDot").classList.remove("on"); try { localStorage.setItem("seenAlert", String(Date.now() / 1000)); } catch { } }
   if (v === "settings") v = "control";
@@ -834,8 +840,11 @@ $("#wNew").addEventListener("click", async () => {
   const start = location.hash.slice(1);
   if (start === "settings") $(`.tabs [data-view="control"]`).click();
   else if (start && $(`.tabs [data-view="${start}"]`)) $(`.tabs [data-view="${start}"]`).click();
-  setInterval(() => { loadStatus(); if (cur === "network") { loadNetwork(); loadSites(); } if (cur === "control") loadSecurity(); if (cur === "market") { loadMoney(); loadFunnel(); } if (cur === "alerts") loadAlerts(); }, 30000);
+  setInterval(() => { if (document.hidden) return; loadStatus(); if (cur === "network") { loadNetwork(); loadSites(); window.loadTailnet?.(); } if (cur === "control") loadSecurity(); if (cur === "market") { loadMoney(); loadFunnel(); } if (cur === "alerts") loadAlerts(); }, 30000);
   setInterval(loadDisks, 300000);
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) { connect(); onView(cur); } });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) { es?.close(); es = null; clearInterval(poller); return; }  // no server work while Orbit is in the background
+    fails = 0; connect(); onView(cur);
+  });
   navigator.serviceWorker?.addEventListener("message", e => { if (e.data?.type === "nav") { const v = (e.data.url.split("#")[1] || "alerts"); $(`.tabs [data-view="${v}"]`)?.click(); } });
 })();

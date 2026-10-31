@@ -301,3 +301,13 @@ button.row{width:100%;background:none;border:0;color:inherit;font:inherit;text-a
 #view-themachine .gv .mini{white-space:normal;overflow-wrap:anywhere;line-height:1.3}
 .duo-card,.fleet-link{cursor:pointer}.duo-card:active,.fleet-link:active{transform:scale(.99)}
 .section-break{font:700 11px var(--mono);letter-spacing:.2em;color:var(--mute);margin:22px 4px 10px;padding-top:14px;border-top:1px solid var(--line)}
+
+/* Tailnet panel */
+.section-sub{font:600 10px var(--mono);letter-spacing:.15em;color:var(--mute);margin:14px 0 4px}
+.tn-row .acts{display:flex;gap:6px;flex-shrink:0}
+.tn-row .btn.on{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 40%,transparent)}
+.tn-row .tag{font:600 9px var(--mono);letter-spacing:.08em;padding:1px 5px;border-radius:99px;border:1px solid var(--line);color:var(--mute);margin-left:4px;vertical-align:middle}
+.tn-row .tag.warn{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 40%,transparent)}
+.tn-row .tag.bad{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,transparent)}
+.tn-row .ping{font:11px var(--mono);color:var(--good)}
+.btn.busy{opacity:.55;pointer-events:none}
