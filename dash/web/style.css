@@ -311,3 +311,4 @@ button.row{width:100%;background:none;border:0;color:inherit;font:inherit;text-a
 .tn-row .tag.bad{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,transparent)}
 .tn-row .ping{font:11px var(--mono);color:var(--good)}
 .btn.busy{opacity:.55;pointer-events:none}
+.msgtag{margin-top:6px;font:10px var(--mono);letter-spacing:.06em;color:var(--mute);white-space:normal}
